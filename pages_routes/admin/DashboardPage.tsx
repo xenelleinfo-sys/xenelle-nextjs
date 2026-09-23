@@ -20,7 +20,7 @@ const DashboardPage = () => {
           className="mb-4 flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 hover:bg-amber-100"
         >
           <span>
-            <strong>{data.toVerify}</strong> advance payment{data.toVerify === 1 ? "" : "s"} waiting for verification
+            <strong>{data.toVerify}</strong> online payment{data.toVerify === 1 ? "" : "s"} waiting for verification
           </span>
           <span className="font-medium">Review →</span>
         </Link>

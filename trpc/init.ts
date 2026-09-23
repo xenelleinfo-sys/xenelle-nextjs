@@ -39,7 +39,7 @@ export const baseProcedure = t.procedure;
  * blocked customers and demoted admins lose access immediately even though
  * their JWT cookie is still valid.
  */
-const getSessionUser = cache(async () => {
+export const getSessionUser = cache(async () => {
   const session = await getAuthServer();
   if (!session?.user?.id) return null;
   const user = await prisma.user.findUnique({
@@ -47,6 +47,11 @@ const getSessionUser = cache(async () => {
     select: { id: true, name: true, email: true, phone: true, role: true, isActive: true },
   });
   return user?.isActive ? user : null;
+});
+
+// Guest or logged-in: ctx.user is the session user or null (guest checkout).
+export const optionalUserProcedure = baseProcedure.use(async ({ next }) => {
+  return next({ ctx: { user: await getSessionUser() } });
 });
 
 // Authenticated procedure - calls auth() only when needed

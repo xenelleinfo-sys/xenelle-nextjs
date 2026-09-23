@@ -49,19 +49,33 @@ export const cartItemSchema = z
     message: "Select a size or enter your measurements",
   });
 
-export const advanceProofSchema = z.object({
-  accountId: z.string().min(1, "Select the account you sent the advance to"),
+export const onlinePaymentProofSchema = z.object({
+  accountId: z.string().min(1, "Select the account you sent the payment to"),
   screenshotUrl: z.url("Upload the payment screenshot"),
   transactionId: z.string().trim().max(40).optional().nullable(),
   senderNumber: z.string().trim().max(20).optional().nullable(),
 });
 
-export const placeOrderSchema = z.object({
-  items: z.array(cartItemSchema).min(1, "Your cart is empty").max(30),
-  shipping: addressSchema,
-  advance: advanceProofSchema,
-  notes: z.string().trim().max(500).optional().nullable(),
-  saveAddress: z.boolean().default(true),
+export const placeOrderSchema = z
+  .object({
+    items: z.array(cartItemSchema).min(1, "Your cart is empty").max(30),
+    // guests give an email so they can be contacted / find the order later
+    email: z.email("Enter a valid email").trim().toLowerCase(),
+    shipping: addressSchema,
+    paymentMethod: z.enum(["COD", "ONLINE"]),
+    onlinePayment: onlinePaymentProofSchema.optional().nullable(),
+    notes: z.string().trim().max(500).optional().nullable(),
+    saveAddress: z.boolean().default(true),
+  })
+  .refine((o) => o.paymentMethod === "COD" || !!o.onlinePayment, {
+    message: "Upload your payment screenshot or choose Cash on Delivery",
+    path: ["onlinePayment"],
+  });
+
+/** Guest tracking: order number + the phone or email used at checkout. */
+export const trackOrderSchema = z.object({
+  orderNumber: z.string().trim().toUpperCase().min(4, "Enter your order number").max(20),
+  contact: z.string().trim().min(5, "Enter the phone number or email used for the order").max(120),
 });
 
 export const productInputSchema = z
@@ -114,5 +128,5 @@ export type CartItemInput = z.infer<typeof cartItemSchema>;
 export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
 export type ProductInput = z.infer<typeof productInputSchema>;
 export type CategoryInput = z.infer<typeof categoryInputSchema>;
-export type AdvanceProofInput = z.infer<typeof advanceProofSchema>;
+export type OnlinePaymentProofInput = z.infer<typeof onlinePaymentProofSchema>;
 export type PaymentAccountInput = z.infer<typeof paymentAccountInputSchema>;

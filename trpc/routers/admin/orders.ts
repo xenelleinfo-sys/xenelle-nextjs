@@ -13,15 +13,15 @@ export const adminOrdersRouter = createTRPCRouter({
         page: z.number().int().min(1).default(1),
         limit: z.number().int().min(1).max(100).default(20),
         status: orderStatusSchema.optional(),
-        // "verify" = advance screenshot waiting for the admin
-        advance: z.enum(["verify"]).optional(),
+        // "verify" = online payment screenshot waiting for the admin
+        payment: z.enum(["verify"]).optional(),
         q: z.string().optional(),
       }),
     )
     .query(async ({ input }) => {
       const where: Prisma.OrderWhereInput = {};
       if (input.status) where.status = input.status;
-      if (input.advance === "verify") where.advance = { is: { status: "PENDING" } };
+      if (input.payment === "verify") where.onlinePayment = { is: { status: "PENDING" } };
       const q = input.q?.trim();
       if (q) {
         where.OR = [
@@ -45,13 +45,14 @@ export const adminOrdersRouter = createTRPCRouter({
             total: true,
             createdAt: true,
             shipping: true,
-            advance: { select: { status: true, amount: true } },
+            paymentMethod: true,
+            onlinePayment: { select: { status: true, amount: true } },
             items: { select: { quantity: true } },
           },
         }),
         prisma.order.count({ where }),
         prisma.order.groupBy({ by: ["status"], _count: { _all: true } }),
-        prisma.order.count({ where: { status: "PENDING", advance: { is: { status: "PENDING" } } } }),
+        prisma.order.count({ where: { status: "PENDING", onlinePayment: { is: { status: "PENDING" } } } }),
       ]);
 
       const counts = Object.fromEntries(ORDER_STATUSES.map((s) => [s, 0])) as Record<
@@ -83,17 +84,21 @@ export const adminOrdersRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const order = await prisma.order.findUnique({
         where: { id: input.id },
-        select: { status: true, advance: { select: { status: true } } },
+        select: { status: true, paymentMethod: true, onlinePayment: { select: { status: true } } },
       });
       if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
       if (order.status === input.status) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Order already has this status" });
       }
-      // an order is only confirmed once its advance is verified
-      if (!["PENDING", "CANCELLED"].includes(input.status) && order.advance?.status !== "VERIFIED") {
+      // online orders are only confirmed once their payment screenshot is verified
+      if (
+        order.paymentMethod === "ONLINE" &&
+        !["PENDING", "CANCELLED"].includes(input.status) &&
+        order.onlinePayment?.status !== "VERIFIED"
+      ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Verify the advance payment before moving this order forward",
+          message: "Verify the online payment before moving this order forward",
         });
       }
 
@@ -109,26 +114,28 @@ export const adminOrdersRouter = createTRPCRouter({
       });
     }),
 
-  verifyAdvance: adminProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+  verifyPayment: adminProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
     const order = await prisma.order.findUnique({
       where: { id: input.id },
-      select: { status: true, advance: true },
+      select: { status: true, total: true, onlinePayment: true },
     });
-    if (!order?.advance) throw new TRPCError({ code: "NOT_FOUND", message: "No advance payment on this order" });
-    if (order.advance.status === "VERIFIED") {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Advance is already verified" });
+    if (!order?.onlinePayment) throw new TRPCError({ code: "NOT_FOUND", message: "No online payment on this order" });
+    if (order.onlinePayment.status === "VERIFIED") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Payment is already verified" });
     }
     const confirm = order.status === "PENDING";
+    const fullyPaid = order.onlinePayment.amount >= order.total;
     await prisma.order.update({
       where: { id: input.id },
       data: {
-        advance: { set: { ...order.advance, status: "VERIFIED", note: null, verifiedAt: new Date() } },
-        paymentStatus: "ADVANCE_PAID",
+        onlinePayment: { set: { ...order.onlinePayment, status: "VERIFIED", note: null, verifiedAt: new Date() } },
+        // legacy Rs. 1,000 advance orders stay partially paid
+        paymentStatus: fullyPaid ? "PAID" : "ADVANCE_PAID",
         ...(confirm ? { status: "CONFIRMED" as const } : {}),
         history: {
           push: {
             status: confirm ? "CONFIRMED" : order.status,
-            note: `Advance of Rs. ${order.advance.amount.toLocaleString("en-PK")} verified`,
+            note: `Online payment of Rs. ${order.onlinePayment.amount.toLocaleString("en-PK")} verified`,
             createdAt: new Date(),
           },
         },
@@ -137,21 +144,21 @@ export const adminOrdersRouter = createTRPCRouter({
     return { success: true };
   }),
 
-  rejectAdvance: adminProcedure
+  rejectPayment: adminProcedure
     .input(z.object({ id: z.string(), reason: z.string().trim().min(3, "Give a reason for the customer").max(300) }))
     .mutation(async ({ input }) => {
       const order = await prisma.order.findUnique({
         where: { id: input.id },
-        select: { status: true, advance: true },
+        select: { status: true, onlinePayment: true },
       });
-      if (!order?.advance) throw new TRPCError({ code: "NOT_FOUND", message: "No advance payment on this order" });
+      if (!order?.onlinePayment) throw new TRPCError({ code: "NOT_FOUND", message: "No online payment on this order" });
       if (order.status !== "PENDING") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Only pending orders can have their payment rejected" });
       }
       await prisma.order.update({
         where: { id: input.id },
         data: {
-          advance: { set: { ...order.advance, status: "REJECTED", note: input.reason, verifiedAt: null } },
+          onlinePayment: { set: { ...order.onlinePayment, status: "REJECTED", note: input.reason, verifiedAt: null } },
           paymentStatus: "UNPAID",
           history: {
             push: { status: "PENDING", note: `Payment not verified: ${input.reason}`, createdAt: new Date() },

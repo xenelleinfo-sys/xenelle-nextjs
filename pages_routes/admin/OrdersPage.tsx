@@ -6,8 +6,8 @@ import { Search } from "lucide-react";
 import { useTRPC } from "@/trpc/client";
 import { PageHeader, Pager, Panel, Table, useDebounced } from "@/components/admin/ui";
 import { Spinner, StatusBadge } from "@/components/ui/misc";
-import { AdvanceStatusBadge } from "@/components/shop/advance-status";
-import { ORDER_STATUSES, ORDER_STATUS_META, PAYMENT_STATUS_LABEL, type OrderStatusValue } from "@/lib/constants";
+import { OnlinePaymentStatusBadge } from "@/components/shop/online-payment-status";
+import { ORDER_STATUSES, ORDER_STATUS_META, PAYMENT_METHODS, PAYMENT_STATUS_LABEL, type OrderStatusValue } from "@/lib/constants";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
 
 export const ADMIN_ORDERS_DEFAULT = { page: 1, limit: 20 } as const;
@@ -25,7 +25,7 @@ const OrdersPage = () => {
       ...ADMIN_ORDERS_DEFAULT,
       page,
       status,
-      advance: toVerify ? "verify" : undefined,
+      payment: toVerify ? "verify" : undefined,
       q: q || undefined,
     }),
     placeholderData: keepPreviousData,
@@ -39,7 +39,7 @@ const OrdersPage = () => {
 
   return (
     <>
-      <PageHeader title="Orders" description="Verify advance payments, then track and update stitching orders" />
+      <PageHeader title="Orders" description="Verify online payments, confirm COD orders and update their status" />
 
       <div className="mb-4 flex gap-1 overflow-x-auto">
         <button
@@ -108,8 +108,9 @@ const OrdersPage = () => {
                   <td className="whitespace-nowrap text-muted">{formatDate(o.createdAt, true)}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td className="text-xs">
-                    {o.advance && o.paymentStatus !== "PAID" ? (
-                      <AdvanceStatusBadge status={o.advance.status} />
+                    <span className="mr-1.5 font-medium">{PAYMENT_METHODS[o.paymentMethod].short}</span>
+                    {o.onlinePayment && o.paymentStatus !== "PAID" ? (
+                      <OnlinePaymentStatusBadge status={o.onlinePayment.status} />
                     ) : (
                       <span className={o.paymentStatus === "PAID" ? "text-emerald-700" : "text-muted"}>
                         {PAYMENT_STATUS_LABEL[o.paymentStatus]}

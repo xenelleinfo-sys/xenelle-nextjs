@@ -2,17 +2,22 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowLeft, Phone, Printer } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import { PageHeader, Panel } from "@/components/admin/ui";
+import { PaymentReview } from "@/components/admin/payment-review";
 import { Button } from "@/components/ui/button";
-import { Select, Textarea } from "@/components/ui/field";
 import { StatusBadge } from "@/components/ui/misc";
 import { OrderItems } from "@/components/shop/order-items";
-import { AdvanceReview } from "@/components/admin/advance-review";
-import { ORDER_STATUSES, ORDER_STATUS_META, PAYMENT_STATUS_LABEL, type OrderStatusValue } from "@/lib/constants";
-import { balanceDue, formatDate, formatPrice } from "@/lib/utils";
+import {
+  ORDER_STATUSES,
+  ORDER_STATUS_META,
+  PAYMENT_METHODS,
+  PAYMENT_STATUS_LABEL,
+  type OrderStatusValue,
+} from "@/lib/constants";
+import { balanceDue, cn, formatDate, formatPrice } from "@/lib/utils";
 
 const AdminOrderDetailPage = ({ id }: { id: string }) => {
   const trpc = useTRPC();
@@ -50,6 +55,13 @@ const AdminOrderDetailPage = ({ id }: { id: string }) => {
     }),
   );
 
+  const isOnline = order.paymentMethod === "ONLINE";
+  // online orders move past Pending only after their payment is verified
+  const needsVerification = isOnline && order.onlinePayment?.status !== "VERIFIED";
+  const blocked = needsVerification && !["PENDING", "CANCELLED"].includes(status);
+  const customerName = order.user?.name ?? order.shipping.fullName;
+  const customerEmail = order.user?.email ?? order.email;
+
   return (
     <>
       <Link href="/admin/orders" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground print:hidden">
@@ -57,7 +69,7 @@ const AdminOrderDetailPage = ({ id }: { id: string }) => {
       </Link>
       <PageHeader
         title={`Order ${order.orderNumber}`}
-        description={`Placed ${formatDate(order.createdAt, true)}`}
+        description={`Placed ${formatDate(order.createdAt, true)} · ${PAYMENT_METHODS[order.paymentMethod].label}`}
         actions={
           <>
             <StatusBadge status={order.status} className="self-center text-xs" />
@@ -68,23 +80,71 @@ const AdminOrderDetailPage = ({ id }: { id: string }) => {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
+      {/* Update status: always at the top so it's visible on every screen size */}
+      <Panel className="mb-6 p-4 print:hidden">
+        <form
+          className="flex flex-col gap-3 md:flex-row md:items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            updateStatus.mutate({ id, status, note: note.trim() || undefined });
+          }}
+        >
+          <label className="block md:w-52">
+            <span className="field-label">Order status</span>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as OrderStatusValue)}
+              className="field"
+            >
+              {ORDER_STATUSES.map((s) => (
+                <option key={s} value={s}>{ORDER_STATUS_META[s].label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block flex-1">
+            <span className="field-label">Note for customer (optional)</span>
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={300}
+              placeholder="e.g. Courier: TCS, tracking #123456"
+              className="field"
+            />
+          </label>
+          <Button
+            type="submit"
+            className="md:w-40"
+            loading={updateStatus.isPending}
+            disabled={status === order.status || blocked}
+          >
+            Update Status
+          </Button>
+        </form>
+        {blocked && (
+          <p className="mt-2 text-xs text-danger">
+            Verify the online payment (below) before moving this order forward.
+          </p>
+        )}
+        {!blocked && status === "DELIVERED" && order.status !== "DELIVERED" && (
+          <p className="mt-2 text-xs text-muted">Delivered orders are automatically marked as paid.</p>
+        )}
+      </Panel>
+
+      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+        <div className="min-w-0 space-y-6">
           <Panel className="p-5">
             <h2 className="mb-2 font-semibold">Items & Measurements</h2>
             <OrderItems items={order.items} linkProducts={false} />
             <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-sm">
               <div className="flex justify-between"><dt className="text-muted">Subtotal</dt><dd>{formatPrice(order.subtotal)}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted">Shipping</dt><dd>{formatPrice(order.shippingFee)}</dd></div>
+              <div className="flex justify-between">
+                <dt className="text-muted">Delivery</dt>
+                <dd>{order.shippingFee === 0 ? "Free" : formatPrice(order.shippingFee)}</dd>
+              </div>
               <div className="flex justify-between text-base font-semibold"><dt>Total</dt><dd>{formatPrice(order.total)}</dd></div>
-              {order.advance && (
-                <div className="flex justify-between">
-                  <dt className="text-muted">Advance {order.advance.status === "VERIFIED" ? "(verified)" : "(not verified)"}</dt>
-                  <dd>− {formatPrice(order.advance.amount)}</dd>
-                </div>
-              )}
-              <div className="flex justify-between font-semibold text-accent-dark">
-                <dt>Collect on delivery</dt><dd>{formatPrice(balanceDue(order))}</dd>
+              <div className={cn("flex justify-between font-semibold", balanceDue(order) > 0 ? "text-accent-dark" : "text-emerald-700")}>
+                <dt>{isOnline ? "Balance to collect" : "Collect on delivery"}</dt>
+                <dd>{balanceDue(order) === 0 ? "Nothing — paid" : formatPrice(balanceDue(order))}</dd>
               </div>
             </dl>
           </Panel>
@@ -106,10 +166,19 @@ const AdminOrderDetailPage = ({ id }: { id: string }) => {
               )}
             </Panel>
             <Panel className="p-5 text-sm">
-              <h2 className="mb-3 font-semibold">Customer Account</h2>
-              <Link href={`/admin/customers/${order.user.id}`} className="font-medium hover:underline">{order.user.name}</Link>
-              <p className="text-muted">{order.user.email}</p>
-              {order.user.phone && <p className="text-muted">{order.user.phone}</p>}
+              <h2 className="mb-3 font-semibold">Customer</h2>
+              {order.user ? (
+                <Link href={`/admin/customers/${order.user.id}`} className="font-medium hover:underline">{customerName}</Link>
+              ) : (
+                <p className="font-medium">
+                  {customerName} <span className="ml-1 rounded bg-soft px-1.5 py-0.5 text-[11px] font-normal text-muted">Guest</span>
+                </p>
+              )}
+              {customerEmail && (
+                <a href={`mailto:${customerEmail}`} className="mt-1 flex items-center gap-1 text-muted hover:text-foreground">
+                  <Mail className="size-3.5" /> {customerEmail}
+                </a>
+              )}
               <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
                 <span>Payment: <strong>{PAYMENT_STATUS_LABEL[order.paymentStatus]}</strong></span>
                 <Button
@@ -117,19 +186,9 @@ const AdminOrderDetailPage = ({ id }: { id: string }) => {
                   variant="ghost"
                   className="print:hidden"
                   loading={setPayment.isPending}
-                  onClick={() =>
-                    setPayment.mutate({
-                      id,
-                      paymentStatus:
-                        order.paymentStatus !== "PAID"
-                          ? "PAID"
-                          : order.advance?.status === "VERIFIED"
-                            ? "ADVANCE_PAID"
-                            : "UNPAID",
-                    })
-                  }
+                  onClick={() => setPayment.mutate({ id, paymentStatus: order.paymentStatus === "PAID" ? "UNPAID" : "PAID" })}
                 >
-                  {order.paymentStatus === "PAID" ? "Undo fully paid" : "Mark fully paid"}
+                  {order.paymentStatus === "PAID" ? "Mark unpaid" : "Mark paid"}
                 </Button>
               </div>
             </Panel>
@@ -137,49 +196,15 @@ const AdminOrderDetailPage = ({ id }: { id: string }) => {
         </div>
 
         <div className="space-y-6 print:hidden">
-          <AdvanceReview
+          <PaymentReview
             orderId={id}
             orderStatus={order.status}
-            advance={order.advance}
+            payment={order.onlinePayment}
             onChanged={async (verified) => {
               if (verified && order.status === "PENDING") setStatus("CONFIRMED");
               await refresh();
             }}
           />
-          <Panel className="p-5">
-            <h2 className="mb-4 font-semibold">Update Status</h2>
-            <form
-              className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                updateStatus.mutate({ id, status, note: note.trim() || undefined });
-              }}
-            >
-              <Select value={status} onChange={(e) => setStatus(e.target.value as OrderStatusValue)} label="Status">
-                {ORDER_STATUSES.map((s) => (
-                  <option key={s} value={s}>{ORDER_STATUS_META[s].label}</option>
-                ))}
-              </Select>
-              <Textarea
-                label="Note (visible to customer)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={2}
-                placeholder="e.g. Courier: TCS, tracking #123456"
-                maxLength={300}
-              />
-              <Button type="submit" className="w-full" loading={updateStatus.isPending} disabled={status === order.status}>
-                Update
-              </Button>
-              {order.advance?.status !== "VERIFIED" && !["PENDING", "CANCELLED"].includes(status) && (
-                <p className="text-xs text-danger">Verify the advance payment first.</p>
-              )}
-              {status === "DELIVERED" && order.status !== "DELIVERED" && (
-                <p className="text-xs text-muted">Delivered orders are automatically marked as paid (cash collected).</p>
-              )}
-            </form>
-          </Panel>
-
           <Panel className="p-5">
             <h2 className="mb-4 font-semibold">History</h2>
             <ol className="space-y-4">

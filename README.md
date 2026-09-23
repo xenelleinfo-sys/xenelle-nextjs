@@ -19,17 +19,15 @@ Next.js 16 (App Router, Cache Components) · Prisma 6 + MongoDB · tRPC 11 + Tan
 - **Auth**: `proxy.ts` redirects guests away from `/checkout`, `/account`, `/admin`; `authProcedure` / `adminProcedure` enforce it on every tRPC call.
 - **Checkout**: cart lives in localStorage; on "Place Order" the server re-prices every item from the DB and creates a COD order.
 
-## Order & payment flow
+## Checkout & payment flow
 
-1. Customer checks out and sends a **Rs. 1,000 advance** (`ADVANCE_AMOUNT` in `lib/constants.ts`) to one of the JazzCash / EasyPaisa / bank accounts listed at checkout, then uploads the payment screenshot (+ optional transaction ID).
-2. Order is created as `PENDING` with the advance `PENDING`. Admin sees it under **Orders → Payments to verify** (also flagged on the dashboard).
-3. Admin opens the order, checks the screenshot against the wallet app and clicks **Verify** → order becomes `CONFIRMED`, payment `ADVANCE_PAID`. **Reject** (with a reason) keeps it pending and the customer can upload a new screenshot from their order page.
-4. `CONFIRMED → STITCHING → READY → SHIPPED → DELIVERED`; the balance is collected cash on delivery (delivered = `PAID`). An order can't move past Pending until its advance is verified.
-
-Payment accounts are managed in **Admin → Payment Accounts**; checkout is disabled while no account is active.
+- **No account needed.** Guests check out with email + phone + address. Every order gets a secret link (`/order/<number>?t=<token>`), shown after checkout and saved on the device; guests can also find it on **/track** with order number + phone or email. Logged-in customers see all their orders (including guest orders placed with the same email) under **My Orders**.
+- **Online Payment** (JazzCash / EasyPaisa, full amount, **free delivery**): customer uploads the payment screenshot at checkout. Admin verifies it under **Orders → Payments to verify** → order becomes `CONFIRMED` + `PAID`. **Reject** (with a reason) lets the customer upload a new screenshot from their order page. Online orders can't move past Pending until verified.
+- **Cash on Delivery** (full amount + `COD_DELIVERY_FEE` = Rs. 350): admin confirms by phone and moves the order forward; delivered = `PAID`.
+- Fees live in `lib/constants.ts` (`DELIVERY_FEE`). Payment accounts are managed in **Admin → Payment Accounts**; without an active account only COD is offered.
 
 ## Image uploads (Cloudinary)
 
 Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`. `app/api/upload/route.ts` does signed uploads (no SDK):
 - product / category images (admin only) → `xenelle/products`
-- advance screenshots (any logged-in customer, 1 image, 5MB) → `xenelle/payments`, random ids; orders only accept screenshot URLs from this folder of your own cloud.
+- payment screenshots (anyone at checkout, 1 image, 5MB, rate-limited per IP) → `xenelle/payments`, random ids; orders only accept screenshot URLs from this folder of your own cloud.

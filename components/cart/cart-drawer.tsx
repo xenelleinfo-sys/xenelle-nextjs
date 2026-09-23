@@ -81,7 +81,7 @@ export function CartDrawer() {
                 <span>Subtotal</span>
                 <span className="font-medium">{formatPrice(subtotal)}</span>
               </div>
-              <p className="text-xs text-muted">Shipping calculated at checkout. Rs. 1,000 advance via JazzCash / EasyPaisa, rest cash on delivery.</p>
+              <p className="text-xs text-muted">Free delivery with online payment (JazzCash / EasyPaisa), or cash on delivery.</p>
               <div className="grid grid-cols-2 gap-2">
                 <ButtonLink href="/cart" variant="outline" onClick={close}>
                   View Bag

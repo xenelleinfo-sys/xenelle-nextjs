@@ -107,7 +107,7 @@ const ProductPage = ({ slug }: { slug: string }) => {
           <h1 className="heading-display mt-2 text-4xl lg:text-5xl">{product.name}</h1>
           {product.sku && <p className="mt-2 text-xs text-muted">SKU: {product.sku}</p>}
           <Price price={product.price} salePrice={product.salePrice} className="mt-4 text-xl" />
-          <p className="mt-1 text-xs text-muted">Stitching included · Rs. 1,000 advance, rest cash on delivery</p>
+          <p className="mt-1 text-xs text-muted">Stitching included · Free delivery on online payment · COD available</p>
 
           {/* Sizing */}
           <div className="mt-8">
@@ -201,7 +201,7 @@ const ProductPage = ({ slug }: { slug: string }) => {
               <Scissors className="size-4 text-accent" /> Expert stitching
             </div>
             <div className="flex flex-col items-center gap-2">
-              <Banknote className="size-4 text-accent" /> Advance + COD
+              <Banknote className="size-4 text-accent" /> Online or COD
             </div>
           </div>
 

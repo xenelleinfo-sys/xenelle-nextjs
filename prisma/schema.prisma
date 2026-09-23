@@ -16,8 +16,8 @@ enum Role {
 }
 
 enum OrderStatus {
-  PENDING // placed by customer, advance payment awaiting verification
-  CONFIRMED // advance verified by admin
+  PENDING // placed; online payment awaiting verification / COD awaiting confirmation call
+  CONFIRMED // payment verified (online) or confirmed by phone (COD)
   STITCHING // in tailoring
   READY // stitched, packed
   SHIPPED // handed to courier
@@ -25,14 +25,14 @@ enum OrderStatus {
   CANCELLED
 }
 
-// Rs. advance via JazzCash / EasyPaisa, balance cash on delivery
 enum PaymentMethod {
-  COD
+  COD // pay full amount in cash on delivery (+ delivery charges)
+  ONLINE // pay full amount via JazzCash / EasyPaisa, upload screenshot (free delivery)
 }
 
 enum PaymentStatus {
   UNPAID
-  ADVANCE_PAID // advance verified, balance due on delivery
+  ADVANCE_PAID // legacy: orders placed with the old Rs. 1,000 advance flow
   PAID
 }
 
@@ -42,7 +42,7 @@ enum PaymentProvider {
   BANK
 }
 
-enum AdvanceStatus {
+enum OnlinePaymentStatus {
   PENDING // screenshot uploaded, waiting for admin
   VERIFIED
   REJECTED
@@ -111,8 +111,13 @@ model Product {
 model Order {
   id            String               @id @default(auto()) @map("_id") @db.ObjectId
   orderNumber   String               @unique
-  userId        String               @db.ObjectId
-  user          User                 @relation(fields: [userId], references: [id])
+  // null for guest checkout
+  userId        String?              @db.ObjectId
+  user          User?                @relation(fields: [userId], references: [id])
+  // contact email (guest or account); lets a later account see guest orders
+  email         String?
+  // secret for the guest order link (/order/<number>?t=<token>)
+  accessToken   String?
   items         OrderItem[]
   shipping      Address
   subtotal      Int
@@ -121,13 +126,15 @@ model Order {
   paymentMethod PaymentMethod        @default(COD)
   paymentStatus PaymentStatus        @default(UNPAID)
   status        OrderStatus          @default(PENDING)
-  advance       AdvancePayment?
+  // stored as "advance" (name of the earlier Rs. 1,000 advance flow)
+  onlinePayment OnlinePayment?       @map("advance")
   history       OrderStatusHistory[]
   notes         String?
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
   @@index([userId, createdAt])
+  @@index([email, createdAt])
   @@index([status, createdAt])
 }
 
@@ -187,7 +194,7 @@ type OrderStatusHistory {
   createdAt DateTime    @default(now())
 }
 
-type AdvancePayment {
+type OnlinePayment {
   amount        Int
   // snapshot of the account the customer paid to
   provider      PaymentProvider
@@ -196,7 +203,7 @@ type AdvancePayment {
   transactionId String?
   senderNumber  String?
   screenshotUrl String
-  status        AdvanceStatus   @default(PENDING)
+  status        OnlinePaymentStatus @default(PENDING)
   // reason shown to the customer when rejected
   note          String?
   submittedAt   DateTime

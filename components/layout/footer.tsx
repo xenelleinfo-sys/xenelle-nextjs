@@ -6,7 +6,7 @@ import { Logo } from "./logo";
 const perks = [
   { icon: Scissors, title: "Expert Tailoring", text: "Stitched by experienced tailors" },
   { icon: Ruler, title: "Your Measurements", text: "Standard sizes or custom fit" },
-  { icon: Banknote, title: "Rs. 1,000 Advance", text: "Rest cash on delivery" },
+  { icon: Banknote, title: "Online or COD", text: "Free delivery on online payment" },
   { icon: Truck, title: "Nationwide Delivery", text: "Delivered to your doorstep" },
 ];
 

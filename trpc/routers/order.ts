@@ -1,11 +1,19 @@
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { CLOUDINARY_FOLDERS, isOwnCloudinaryUrl } from "@/lib/cloudinary";
-import { ADVANCE_AMOUNT, FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/constants";
+import { DELIVERY_FEE } from "@/lib/constants";
 import { effectivePrice } from "@/lib/utils";
-import { advanceProofSchema, placeOrderSchema, type AdvanceProofInput } from "@/lib/validators";
-import { authProcedure, createTRPCRouter } from "../init";
+import {
+  onlinePaymentProofSchema,
+  placeOrderSchema,
+  trackOrderSchema,
+  type OnlinePaymentProofInput,
+} from "@/lib/validators";
+import { authProcedure, createTRPCRouter, optionalUserProcedure, type getSessionUser } from "../init";
+
+type SessionUser = Awaited<ReturnType<typeof getSessionUser>>;
 
 function generateOrderNumber() {
   const time = Date.now().toString(36).toUpperCase().slice(-5);
@@ -13,8 +21,18 @@ function generateOrderNumber() {
   return `XN-${time}${rand}`;
 }
 
-/** Validates the advance proof and snapshots the account it was sent to. */
-async function buildAdvance(proof: AdvanceProofInput, amount: number) {
+const newAccessToken = () => randomBytes(16).toString("hex");
+
+function tokenMatches(expected: string | null, given: string | undefined) {
+  if (!expected || !given || expected.length !== given.length) return false;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(given));
+}
+
+/** Compare phone numbers by their last 10 digits (03001234567 == +923001234567). */
+const phoneKey = (v: string) => v.replace(/\D/g, "").slice(-10);
+
+/** Validates the payment screenshot and snapshots the account it was sent to. */
+async function buildOnlinePayment(proof: OnlinePaymentProofInput, amount: number) {
   if (!isOwnCloudinaryUrl(proof.screenshotUrl, CLOUDINARY_FOLDERS.payments)) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Please upload the payment screenshot again" });
   }
@@ -39,9 +57,28 @@ async function buildAdvance(proof: AdvanceProofInput, amount: number) {
   };
 }
 
+/**
+ * Loads an order the caller may see: via the secret link token (guests),
+ * as the logged-in owner (same account or same email), or as admin.
+ */
+async function findAuthorizedOrder(orderNumber: string, token: string | undefined, user: SessionUser) {
+  const order = await prisma.order.findUnique({ where: { orderNumber: orderNumber.trim().toUpperCase() } });
+  const allowed =
+    !!order &&
+    (tokenMatches(order.accessToken, token) ||
+      (!!user &&
+        (user.role === "ADMIN" ||
+          order.userId === user.id ||
+          (!!order.email && order.email === user.email.toLowerCase()))));
+  if (!order || !allowed) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+  return order;
+}
+
+const orderRef = z.object({ orderNumber: z.string().trim().max(20), token: z.string().max(64).optional() });
+
 export const orderRouter = createTRPCRouter({
-  // Advance (JazzCash / EasyPaisa) + Cash on Delivery. Prices are always recomputed from the DB.
-  place: authProcedure.input(placeOrderSchema).mutation(async ({ ctx, input }) => {
+  // Guest or logged-in checkout. Prices are always recomputed from the DB.
+  place: optionalUserProcedure.input(placeOrderSchema).mutation(async ({ ctx, input }) => {
     const ids = [...new Set(input.items.map((i) => i.productId))];
     const products = await prisma.product.findMany({
       where: { id: { in: ids }, isActive: true },
@@ -75,9 +112,12 @@ export const orderRouter = createTRPCRouter({
     });
 
     const subtotal = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
-    const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+    const shippingFee = DELIVERY_FEE[input.paymentMethod];
     const total = subtotal + shippingFee;
-    const advance = await buildAdvance(input.advance, Math.min(ADVANCE_AMOUNT, total));
+    const onlinePayment =
+      input.paymentMethod === "ONLINE" ? await buildOnlinePayment(input.onlinePayment!, total) : null;
+    const user = ctx.user;
+    const accessToken = newAccessToken();
 
     let order;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -85,23 +125,29 @@ export const orderRouter = createTRPCRouter({
         order = await prisma.order.create({
           data: {
             orderNumber: generateOrderNumber(),
-            userId: ctx.user.id,
+            userId: user?.id ?? null,
+            email: input.email,
+            accessToken,
             items,
             shipping: input.shipping,
             subtotal,
             shippingFee,
             total,
-            advance,
+            paymentMethod: input.paymentMethod,
+            onlinePayment,
             notes: input.notes || null,
             history: [
               {
                 status: "PENDING",
-                note: "Order placed — advance screenshot submitted for verification",
+                note:
+                  input.paymentMethod === "ONLINE"
+                    ? "Order placed — payment screenshot submitted for verification"
+                    : "Order placed — Cash on Delivery",
                 createdAt: new Date(),
               },
             ],
           },
-          select: { id: true, orderNumber: true },
+          select: { orderNumber: true, accessToken: true },
         });
         break;
       } catch (e) {
@@ -110,62 +156,77 @@ export const orderRouter = createTRPCRouter({
       }
     }
 
-    if (input.saveAddress) {
-      await prisma.user.update({
-        where: { id: ctx.user.id },
-        data: { address: { set: input.shipping } },
-      });
+    if (user && input.saveAddress) {
+      await prisma.user.update({ where: { id: user.id }, data: { address: { set: input.shipping } } });
     }
 
     return order!;
   }),
 
+  // Account holders see their own orders plus guest orders placed with their email.
   mine: authProcedure.query(({ ctx }) =>
     prisma.order.findMany({
-      where: { userId: ctx.user.id },
+      where: { OR: [{ userId: ctx.user.id }, { email: ctx.user.email.toLowerCase() }] },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
         orderNumber: true,
         status: true,
         total: true,
+        paymentMethod: true,
         createdAt: true,
-        advance: { select: { status: true } },
+        onlinePayment: { select: { status: true } },
         items: { select: { name: true, image: true, quantity: true } },
       },
     }),
   ),
 
-  byNumber: authProcedure
-    .input(z.object({ orderNumber: z.string().trim().toUpperCase() }))
-    .query(async ({ ctx, input }) => {
-      const order = await prisma.order.findFirst({
-        where: {
-          orderNumber: input.orderNumber,
-          ...(ctx.user.role === "ADMIN" ? {} : { userId: ctx.user.id }),
-        },
-      });
-      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
-      return order;
-    }),
+  view: optionalUserProcedure.input(orderRef).query(async ({ ctx, input }) => {
+    const order = await findAuthorizedOrder(input.orderNumber, input.token, ctx.user);
+    // the token is only ever handed out via checkout / tracking
+    return { ...order, accessToken: undefined };
+  }),
 
-  // Customer re-uploads proof after a rejection (or replaces it while pending).
-  resubmitAdvance: authProcedure
-    .input(z.object({ orderNumber: z.string(), advance: advanceProofSchema }))
+  // Guest tracking: order number + phone/email used at checkout -> secret link.
+  track: optionalUserProcedure.input(trackOrderSchema).mutation(async ({ input }) => {
+    const order = await prisma.order.findUnique({
+      where: { orderNumber: input.orderNumber },
+      select: { id: true, orderNumber: true, email: true, shipping: true, accessToken: true },
+    });
+    const contact = input.contact.toLowerCase();
+    const matches =
+      !!order &&
+      (contact.includes("@")
+        ? order.email === contact
+        : phoneKey(contact).length === 10 && phoneKey(contact) === phoneKey(order.shipping.phone));
+    if (!order || !matches) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "No order found with these details" });
+    }
+    let token = order.accessToken;
+    if (!token) {
+      // orders placed before guest checkout existed
+      token = newAccessToken();
+      await prisma.order.update({ where: { id: order.id }, data: { accessToken: token } });
+    }
+    return { orderNumber: order.orderNumber, token };
+  }),
+
+  // Re-upload the payment screenshot after a rejection (or replace it while pending).
+  resubmitPayment: optionalUserProcedure
+    .input(orderRef.extend({ onlinePayment: onlinePaymentProofSchema }))
     .mutation(async ({ ctx, input }) => {
-      const order = await prisma.order.findFirst({
-        where: { orderNumber: input.orderNumber, userId: ctx.user.id },
-        select: { id: true, status: true, total: true, advance: true },
-      });
-      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
-      if (order.status !== "PENDING" || order.advance?.status === "VERIFIED") {
+      const order = await findAuthorizedOrder(input.orderNumber, input.token, ctx.user);
+      if (order.status !== "PENDING" || order.onlinePayment?.status === "VERIFIED") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Payment for this order is already verified" });
       }
-      const advance = await buildAdvance(input.advance, order.advance?.amount ?? Math.min(ADVANCE_AMOUNT, order.total));
+      const onlinePayment = await buildOnlinePayment(
+        input.onlinePayment,
+        order.onlinePayment?.amount ?? order.total,
+      );
       await prisma.order.update({
         where: { id: order.id },
         data: {
-          advance: { set: advance },
+          onlinePayment: { set: onlinePayment },
           history: {
             push: { status: "PENDING", note: "New payment screenshot submitted", createdAt: new Date() },
           },
@@ -174,27 +235,21 @@ export const orderRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  cancel: authProcedure
-    .input(z.object({ orderNumber: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const order = await prisma.order.findFirst({
-        where: { orderNumber: input.orderNumber, userId: ctx.user.id },
-        select: { id: true, status: true },
+  cancel: optionalUserProcedure.input(orderRef).mutation(async ({ ctx, input }) => {
+    const order = await findAuthorizedOrder(input.orderNumber, input.token, ctx.user);
+    if (order.status !== "PENDING") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Only pending orders can be cancelled. Please contact us.",
       });
-      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
-      if (order.status !== "PENDING") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Only pending orders can be cancelled. Please contact us.",
-        });
-      }
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          status: "CANCELLED",
-          history: { push: { status: "CANCELLED", note: "Cancelled by customer", createdAt: new Date() } },
-        },
-      });
-      return { success: true };
-    }),
+    }
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: "CANCELLED",
+        history: { push: { status: "CANCELLED", note: "Cancelled by customer", createdAt: new Date() } },
+      },
+    });
+    return { success: true };
+  }),
 });

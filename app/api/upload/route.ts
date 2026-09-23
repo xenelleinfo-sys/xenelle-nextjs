@@ -4,18 +4,36 @@ import { CLOUDINARY_FOLDERS, uploadImage } from "@/lib/cloudinary";
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/heic"]);
 const MAX_BYTES = 5 * 1024 * 1024;
 
+// Guests can upload payment screenshots, so cap anonymous uploads per IP.
+// In-memory = per server instance; good enough to stop casual abuse.
+const RATE_LIMIT = { max: 8, windowMs: 10 * 60 * 1000 };
+const hits = new Map<string, number[]>();
+
+function rateLimited(ip: string) {
+  const now = Date.now();
+  const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_LIMIT.windowMs);
+  recent.push(now);
+  hits.set(ip, recent);
+  if (hits.size > 5000) hits.clear();
+  return recent.length > RATE_LIMIT.max;
+}
+
 /**
  * Image upload to Cloudinary.
  *  - purpose=product (default): admin only, up to 10 files -> xenelle/products
- *  - purpose=payment: any logged-in customer, 1 file -> xenelle/payments (advance screenshot)
+ *  - purpose=payment: anyone at checkout (guest checkout), 1 file -> xenelle/payments
  */
 export async function POST(request: Request) {
-  const session = await getAuthServer();
   const purpose = new URL(request.url).searchParams.get("purpose") === "payment" ? "payment" : "product";
 
-  if (!session?.user) return Response.json({ error: "Please login first" }, { status: 401 });
-  if (purpose === "product" && session.user.role !== "ADMIN") {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (purpose === "product") {
+    const session = await getAuthServer();
+    if (session?.user?.role !== "ADMIN") return Response.json({ error: "Forbidden" }, { status: 403 });
+  } else {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (rateLimited(ip)) {
+      return Response.json({ error: "Too many uploads. Please try again in a few minutes." }, { status: 429 });
+    }
   }
 
   const form = await request.formData();

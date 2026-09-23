@@ -33,9 +33,12 @@ export function effectivePrice(p: { price: number; salePrice: number | null }) {
 /** Cash still to collect on delivery. */
 export function balanceDue(o: {
   total: number;
+  paymentMethod: "COD" | "ONLINE";
   paymentStatus: "UNPAID" | "ADVANCE_PAID" | "PAID";
-  advance?: { amount: number; status: string } | null;
+  onlinePayment?: { amount: number; status: string } | null;
 }) {
   if (o.paymentStatus === "PAID") return 0;
-  return o.total - (o.advance?.status === "VERIFIED" ? o.advance.amount : 0);
+  // legacy advance orders: the verified advance is deducted
+  const paidOnline = o.onlinePayment?.status === "VERIFIED" ? o.onlinePayment.amount : 0;
+  return Math.max(0, o.total - paidOnline);
 }

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/misc";
 import { PAYMENT_PROVIDERS, type PaymentProviderValue } from "@/lib/constants";
 import { cn, formatPrice } from "@/lib/utils";
-import type { AdvanceProofInput } from "@/lib/validators";
+import type { OnlinePaymentProofInput } from "@/lib/validators";
 
 export type PaymentAccountOption = {
   id: string;
@@ -18,7 +18,7 @@ export type PaymentAccountOption = {
   instructions: string | null;
 };
 
-export const emptyAdvance: AdvanceProofInput = {
+export const emptyOnlinePayment: OnlinePaymentProofInput = {
   accountId: "",
   screenshotUrl: "",
   transactionId: "",
@@ -63,10 +63,10 @@ function CopyButton({ value }: { value: string }) {
 }
 
 /**
- * Step 1: pick an account & send the advance. Step 2: upload the screenshot.
+ * Step 1: pick an account & send the payment. Step 2: upload the screenshot.
  * Controlled: `value` holds the proof that is submitted with the order.
  */
-export function AdvancePaymentForm({
+export function OnlinePaymentForm({
   accounts,
   amount,
   value,
@@ -75,8 +75,8 @@ export function AdvancePaymentForm({
 }: {
   accounts: PaymentAccountOption[];
   amount: number;
-  value: AdvanceProofInput;
-  onChange: (value: AdvanceProofInput) => void;
+  value: OnlinePaymentProofInput;
+  onChange: (value: OnlinePaymentProofInput) => void;
   error?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -104,7 +104,7 @@ export function AdvancePaymentForm({
   if (accounts.length === 0) {
     return (
       <p className="border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        Online advance accounts are being updated. Please contact us on WhatsApp to place your order.
+        Online payment accounts are being updated. Please choose Cash on Delivery for now.
       </p>
     );
   }
@@ -113,8 +113,7 @@ export function AdvancePaymentForm({
     <div className="space-y-6">
       <div>
         <p className="mb-3 text-sm">
-          <span className="font-medium">1.</span> Send <strong>{formatPrice(amount)}</strong> advance to any account
-          below:
+          <span className="font-medium">1.</span> Send <strong>{formatPrice(amount)}</strong> to any account below:
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           {accounts.map((a) => {
@@ -224,8 +223,8 @@ export function AdvancePaymentForm({
 }
 
 /** Returns the first problem with the proof, or null when it is complete. */
-export function advanceProofError(value: AdvanceProofInput) {
-  if (!value.accountId) return "Select the account you sent the advance to";
+export function onlinePaymentProofError(value: OnlinePaymentProofInput) {
+  if (!value.accountId) return "Select the account you sent the payment to";
   if (!value.screenshotUrl) return "Upload the payment screenshot";
   return null;
 }

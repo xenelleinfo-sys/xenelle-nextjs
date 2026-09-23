@@ -2,7 +2,7 @@ export const SITE_NAME = "Xenelle";
 export const SITE_TAGLINE = "Custom Stitching Studio";
 export const SITE_DESCRIPTION =
   "Xenelle is an online custom stitching studio in Pakistan. Choose 2 piece, 3 piece and formal dress designs, " +
-  "order in a standard size or your own measurements. Confirm with a small JazzCash / EasyPaisa advance and pay the rest cash on delivery.";
+  "order in a standard size or your own measurements. Pay online via JazzCash / EasyPaisa for free delivery, or cash on delivery.";
 export const SITE_KEYWORDS = [
   "Xenelle",
   "custom stitching",
@@ -23,10 +23,23 @@ export const CONTACT = {
   hours: "Mon – Sat, 10am – 7pm",
 };
 
-export const SHIPPING_FEE = 250;
-export const FREE_SHIPPING_THRESHOLD = 10000;
-/** Advance sent via JazzCash / EasyPaisa to confirm an order; the rest is cash on delivery. */
-export const ADVANCE_AMOUNT = 1000;
+/** Delivery charges by payment method: online payment ships free, COD pays delivery. */
+export const COD_DELIVERY_FEE = 350;
+export const DELIVERY_FEE = { ONLINE: 0, COD: COD_DELIVERY_FEE } as const;
+
+export const PAYMENT_METHODS = {
+  ONLINE: {
+    label: "Online Payment",
+    short: "Online",
+    description: "Pay via JazzCash / EasyPaisa and upload the screenshot — free home delivery.",
+  },
+  COD: {
+    label: "Cash on Delivery",
+    short: "COD",
+    description: `Pay the full amount in cash when your order arrives — Rs. ${COD_DELIVERY_FEE} delivery charges.`,
+  },
+} as const;
+export type PaymentMethodValue = keyof typeof PAYMENT_METHODS;
 
 export const PAYMENT_PROVIDERS = {
   JAZZCASH: { label: "JazzCash", tone: "bg-red-50 text-red-700 ring-red-200" },
@@ -35,16 +48,16 @@ export const PAYMENT_PROVIDERS = {
 } as const;
 export type PaymentProviderValue = keyof typeof PAYMENT_PROVIDERS;
 
-export const ADVANCE_STATUS_META = {
+export const ONLINE_PAYMENT_STATUS_META = {
   PENDING: { label: "Verifying payment", tone: "bg-amber-50 text-amber-800 ring-amber-200" },
-  VERIFIED: { label: "Advance verified", tone: "bg-emerald-50 text-emerald-800 ring-emerald-200" },
+  VERIFIED: { label: "Payment verified", tone: "bg-emerald-50 text-emerald-800 ring-emerald-200" },
   REJECTED: { label: "Payment rejected", tone: "bg-rose-50 text-rose-800 ring-rose-200" },
 } as const;
-export type AdvanceStatusValue = keyof typeof ADVANCE_STATUS_META;
+export type OnlinePaymentStatusValue = keyof typeof ONLINE_PAYMENT_STATUS_META;
 
 export const PAYMENT_STATUS_LABEL = {
   UNPAID: "Unpaid",
-  ADVANCE_PAID: "Advance paid",
+  ADVANCE_PAID: "Partially paid",
   PAID: "Paid",
 } as const;
 
@@ -77,12 +90,12 @@ export const ORDER_STATUS_META: Record<
 > = {
   PENDING: {
     label: "Order Placed",
-    description: "We have received your order and are verifying your advance payment.",
+    description: "We have received your order and will confirm it shortly.",
     tone: "bg-amber-50 text-amber-800 ring-amber-200",
   },
   CONFIRMED: {
     label: "Confirmed",
-    description: "Advance received — your order and measurements are confirmed.",
+    description: "Your order and measurements are confirmed.",
     tone: "bg-sky-50 text-sky-800 ring-sky-200",
   },
   STITCHING: {
@@ -97,7 +110,7 @@ export const ORDER_STATUS_META: Record<
   },
   SHIPPED: {
     label: "Shipped",
-    description: "Handed over to the courier. Keep the balance ready in cash.",
+    description: "Handed over to the courier.",
     tone: "bg-indigo-50 text-indigo-800 ring-indigo-200",
   },
   DELIVERED: {

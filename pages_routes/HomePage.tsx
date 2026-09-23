@@ -13,7 +13,7 @@ const HERO_IMAGE =
 const steps = [
   { icon: Shirt, title: "Choose a Design", text: "Browse our 2 piece and 3 piece stitching designs." },
   { icon: Ruler, title: "Share Your Size", text: "Pick a standard size or enter your own measurements." },
-  { icon: Banknote, title: "Advance & Pay on Delivery", text: "Send Rs. 1,000 advance via JazzCash / EasyPaisa, pay the rest when it arrives." },
+  { icon: Banknote, title: "Pay Your Way", text: "Pay online via JazzCash / EasyPaisa for free delivery, or cash on delivery." },
 ];
 
 const HomePage = () => {

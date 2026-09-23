@@ -6,7 +6,7 @@ import { useTRPC } from "@/trpc/client";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, StatusBadge } from "@/components/ui/misc";
 import { ProductImage } from "@/components/ui/product-image";
-import { AdvanceStatusBadge } from "@/components/shop/advance-status";
+import { OnlinePaymentStatusBadge } from "@/components/shop/online-payment-status";
 import { formatDate, formatPrice } from "@/lib/utils";
 
 const MyOrdersPage = () => {
@@ -28,7 +28,7 @@ const MyOrdersPage = () => {
     <ul className="space-y-4">
       {orders.map((o) => (
         <li key={o.id}>
-          <Link href={`/account/orders/${o.orderNumber}`} className="card flex items-center gap-4 p-4 transition hover:border-foreground sm:p-5">
+          <Link href={`/order/${o.orderNumber}`} className="card flex items-center gap-4 p-4 transition hover:border-foreground sm:p-5">
             <div className="flex -space-x-4">
               {o.items.slice(0, 3).map((i, idx) => (
                 <div key={idx} className="relative aspect-[3/4] w-12 overflow-hidden border-2 border-white bg-soft">
@@ -40,8 +40,8 @@ const MyOrdersPage = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-medium">{o.orderNumber}</p>
                 <StatusBadge status={o.status} />
-                {o.status === "PENDING" && o.advance && o.advance.status !== "VERIFIED" && (
-                  <AdvanceStatusBadge status={o.advance.status} />
+                {o.status === "PENDING" && o.onlinePayment && o.onlinePayment.status !== "VERIFIED" && (
+                  <OnlinePaymentStatusBadge status={o.onlinePayment.status} />
                 )}
               </div>
               <p className="mt-1 text-xs text-muted">

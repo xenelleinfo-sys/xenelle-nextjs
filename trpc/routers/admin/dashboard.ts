@@ -16,7 +16,7 @@ export const adminDashboardRouter = createTRPCRouter({
           take: 8,
           select: { id: true, orderNumber: true, status: true, total: true, createdAt: true, shipping: true },
         }),
-        prisma.order.count({ where: { status: "PENDING", advance: { is: { status: "PENDING" } } } }),
+        prisma.order.count({ where: { status: "PENDING", onlinePayment: { is: { status: "PENDING" } } } }),
       ]);
 
     return {

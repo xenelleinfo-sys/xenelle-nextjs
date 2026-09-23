@@ -2,7 +2,6 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { MeasurementsInput } from "@/lib/validators";
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/constants";
 
 export type CartItem = {
   key: string;
@@ -22,9 +21,8 @@ type CartContextValue = {
   items: CartItem[];
   ready: boolean;
   count: number;
+  /** delivery depends on the payment method, chosen at checkout */
   subtotal: number;
-  shippingFee: number;
-  total: number;
   drawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
   add: (item: Omit<CartItem, "key">) => void;
@@ -87,14 +85,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<CartContextValue>(() => {
     const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-    const shippingFee = subtotal === 0 || subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
     return {
       items,
       ready,
       count: items.reduce((s, i) => s + i.quantity, 0),
       subtotal,
-      shippingFee,
-      total: subtotal + shippingFee,
       drawerOpen,
       setDrawerOpen,
       add,

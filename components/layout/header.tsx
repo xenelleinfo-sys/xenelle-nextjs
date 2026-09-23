@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { signOut, useSession } from "next-auth/react";
 import { LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
 import { useTRPC } from "@/trpc/client";
 import { useCart } from "@/components/cart/cart-context";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
 import { Logo } from "./logo";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export function Header() {
   const trpc = useTRPC();
@@ -28,7 +28,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
       <div className="bg-foreground py-2 text-center text-[11px] uppercase tracking-[0.2em] text-white">
-        Free delivery above {formatPrice(FREE_SHIPPING_THRESHOLD)} · Cash on Delivery nationwide
+        Free delivery on online payment · Cash on Delivery nationwide
       </div>
 
       <div className="container-x grid h-20 grid-cols-[1fr_auto_1fr] items-center border-b border-line lg:h-24">
@@ -41,7 +41,7 @@ export function Header() {
           </button>
         </div>
 
-        <Logo priority className="w-36 lg:w-48" />
+        <Logo priority className="w-28 sm:w-36 lg:w-48" />
 
         <div className="flex items-center justify-end gap-1">
           <button className="p-2 lg:hidden" onClick={() => setSearchOpen((s) => !s)} aria-label="Search">
@@ -106,12 +106,17 @@ function SearchBar({ onClose }: { onClose: () => void }) {
   );
 }
 
+const noopSubscribe = () => () => {};
+
 function CartButton() {
   const { count, ready, setDrawerOpen } = useCart();
+  // false while hydrating (matches the server HTML), true afterwards: the header
+  // streams in after the cart may already be loaded from localStorage
+  const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
   return (
     <button className="relative p-2" onClick={() => setDrawerOpen(true)} aria-label="Open cart">
       <ShoppingBag className="size-5" />
-      {ready && count > 0 && (
+      {hydrated && ready && count > 0 && (
         <span className="absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-accent text-[10px] text-white">
           {count}
         </span>
@@ -183,37 +188,60 @@ function MobileMenu({
   nav: { href: string; label: string }[];
 }) {
   const { status } = useSession();
-  return (
-    <div className={cn("fixed inset-0 z-50 lg:hidden", !open && "pointer-events-none")}>
+  const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- portal target exists only after mount
+  useEffect(() => setMounted(true), []);
+
+  // lock page scroll while the drawer is open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!mounted) return null;
+
+  // Portal to <body>: the sticky header uses backdrop-blur, which would otherwise
+  // make it the containing block for this `fixed` drawer and clip it to the header height.
+  return createPortal(
+    <div className={cn("fixed inset-0 z-50 lg:hidden", !open && "pointer-events-none")} aria-hidden={!open}>
       <div
         className={cn("absolute inset-0 bg-black/40 transition-opacity", open ? "opacity-100" : "opacity-0")}
         onClick={onClose}
       />
       <aside
         className={cn(
-          "absolute inset-y-0 left-0 flex w-80 max-w-[85vw] flex-col bg-white transition-transform",
+          "absolute inset-y-0 left-0 flex h-dvh w-80 max-w-[85vw] flex-col bg-white shadow-xl transition-transform duration-300",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-line px-5">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-5">
           <Logo className="w-28" href={null} />
-          <button onClick={onClose} aria-label="Close menu" className="p-1">
+          <button onClick={onClose} aria-label="Close menu" className="-mr-2 p-2">
             <X className="size-5" />
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto py-2">
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2">
           {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               onClick={onClose}
-              className="block border-b border-line/60 px-5 py-3.5 text-sm uppercase tracking-[0.15em]"
+              className={cn(
+                "block border-b border-line/60 px-5 py-4 text-sm uppercase tracking-[0.15em]",
+                pathname === item.href && "text-accent",
+              )}
             >
               {item.label}
             </Link>
           ))}
         </nav>
-        <div className="border-t border-line p-5">
+        <div className="shrink-0 space-y-3 border-t border-line p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <Link
             href={status === "authenticated" ? "/account/orders" : "/login"}
             onClick={onClose}
@@ -221,8 +249,12 @@ function MobileMenu({
           >
             <User className="size-4" /> {status === "authenticated" ? "My Orders" : "Login / Register"}
           </Link>
+          <Link href="/track" onClick={onClose} className="flex items-center gap-2 text-sm text-muted">
+            <Package className="size-4" /> Track an order
+          </Link>
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -6,11 +6,10 @@ import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import type { RouterOutputs } from "@/trpc/types";
 import { Modal, PageHeader, Panel, Table, Toggle } from "@/components/admin/ui";
-import { ProviderBadge } from "@/components/shop/advance-payment";
+import { ProviderBadge } from "@/components/shop/online-payment";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/field";
-import { ADVANCE_AMOUNT, PAYMENT_PROVIDERS, type PaymentProviderValue } from "@/lib/constants";
-import { formatPrice } from "@/lib/utils";
+import { PAYMENT_PROVIDERS, type PaymentProviderValue } from "@/lib/constants";
 import { paymentAccountInputSchema, type PaymentAccountInput } from "@/lib/validators";
 
 type Account = RouterOutputs["admin"]["paymentAccounts"]["list"][number];
@@ -61,7 +60,7 @@ const PaymentAccountsPage = () => {
     <>
       <PageHeader
         title="Payment Accounts"
-        description={`JazzCash / EasyPaisa accounts customers send the ${formatPrice(ADVANCE_AMOUNT)} advance to`}
+        description="JazzCash / EasyPaisa accounts shown to customers who choose Online Payment"
         actions={
           <Button size="sm" onClick={() => setEditing("new")}>
             <Plus className="size-3.5" /> Add Account
@@ -70,7 +69,7 @@ const PaymentAccountsPage = () => {
       />
       {!accounts.some((a) => a.isActive) && (
         <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          No active account — customers can&apos;t place orders until you add one.
+          No active account — customers can only choose Cash on Delivery until you add one.
         </p>
       )}
       <Panel>

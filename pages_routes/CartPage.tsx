@@ -6,11 +6,11 @@ import { QuantityInput } from "@/components/cart/quantity-input";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, PageLoader } from "@/components/ui/misc";
 import { ProductImage } from "@/components/ui/product-image";
-import { ADVANCE_AMOUNT, FREE_SHIPPING_THRESHOLD, MEASUREMENT_FIELDS } from "@/lib/constants";
+import { COD_DELIVERY_FEE, MEASUREMENT_FIELDS } from "@/lib/constants";
 import { formatPrice } from "@/lib/utils";
 
 const CartPage = () => {
-  const { items, ready, subtotal, shippingFee, total, updateQuantity, remove } = useCart();
+  const { items, ready, subtotal, updateQuantity, remove } = useCart();
 
   if (!ready) return <PageLoader />;
   if (items.length === 0) {
@@ -72,23 +72,17 @@ const CartPage = () => {
           <h2 className="text-xs font-medium uppercase tracking-[0.2em]">Order Summary</h2>
           <dl className="mt-6 space-y-3 text-sm">
             <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatPrice(subtotal)}</dd></div>
-            <div className="flex justify-between">
-              <dt>Shipping</dt>
-              <dd>{shippingFee === 0 ? "Free" : formatPrice(shippingFee)}</dd>
-            </div>
-            {shippingFee > 0 && (
-              <p className="text-xs text-muted">
-                Add {formatPrice(FREE_SHIPPING_THRESHOLD - subtotal)} more for free delivery.
-              </p>
-            )}
-            <div className="flex justify-between border-t border-line pt-3 text-base font-medium">
-              <dt>Total</dt><dd>{formatPrice(total)}</dd>
+            <div className="space-y-1 text-xs text-muted">
+              <div className="flex justify-between">
+                <dt>Delivery with online payment</dt><dd className="text-emerald-700">Free</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt>Delivery with cash on delivery</dt><dd>{formatPrice(COD_DELIVERY_FEE)}</dd>
+              </div>
             </div>
           </dl>
           <ButtonLink href="/checkout" size="lg" className="mt-6 w-full">Proceed to Checkout</ButtonLink>
-          <p className="mt-3 text-center text-xs text-muted">
-            {formatPrice(Math.min(ADVANCE_AMOUNT, total))} advance via JazzCash / EasyPaisa, rest cash on delivery
-          </p>
+          <p className="mt-3 text-center text-xs text-muted">No account needed · choose payment at checkout</p>
         </aside>
       </div>
     </div>

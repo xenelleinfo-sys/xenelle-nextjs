@@ -8,20 +8,20 @@ import { useTRPC } from "@/trpc/client";
 import { Panel } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
-import { ProviderBadge } from "@/components/shop/advance-payment";
-import { AdvanceStatusBadge, type AdvanceInfo } from "@/components/shop/advance-status";
+import { ProviderBadge } from "@/components/shop/online-payment";
+import { OnlinePaymentStatusBadge, type OnlinePaymentInfo } from "@/components/shop/online-payment-status";
 import { formatDate, formatPrice } from "@/lib/utils";
 
-/** Admin: check the customer's advance screenshot and verify / reject it. */
-export function AdvanceReview({
+/** Admin: check the customer's online payment screenshot and verify / reject it. */
+export function PaymentReview({
   orderId,
   orderStatus,
-  advance,
+  payment,
   onChanged,
 }: {
   orderId: string;
   orderStatus: string;
-  advance: AdvanceInfo | null;
+  payment: OnlinePaymentInfo | null;
   onChanged: (verified: boolean) => Promise<unknown> | void;
 }) {
   const trpc = useTRPC();
@@ -29,16 +29,16 @@ export function AdvanceReview({
   const [reason, setReason] = useState("");
 
   const verify = useMutation(
-    trpc.admin.orders.verifyAdvance.mutationOptions({
+    trpc.admin.orders.verifyPayment.mutationOptions({
       onSuccess: async () => {
-        toast.success(orderStatus === "PENDING" ? "Advance verified — order confirmed" : "Advance verified");
+        toast.success(orderStatus === "PENDING" ? "Payment verified — order confirmed" : "Payment verified");
         await onChanged(true);
       },
       onError: (e) => toast.error(e.message),
     }),
   );
   const reject = useMutation(
-    trpc.admin.orders.rejectAdvance.mutationOptions({
+    trpc.admin.orders.rejectPayment.mutationOptions({
       onSuccess: async () => {
         toast.success("Payment rejected — customer can upload a new screenshot");
         setRejecting(false);
@@ -49,26 +49,19 @@ export function AdvanceReview({
     }),
   );
 
-  if (!advance) {
-    return (
-      <Panel className="p-5 text-sm">
-        <h2 className="mb-2 font-semibold">Advance Payment</h2>
-        <p className="text-muted">No advance was submitted for this order.</p>
-      </Panel>
-    );
-  }
+  if (!payment) return null; // Cash on Delivery order
 
   return (
-    <Panel className={advance.status === "PENDING" ? "p-5 ring-2 ring-amber-300" : "p-5"}>
+    <Panel className={payment.status === "PENDING" ? "p-5 ring-2 ring-amber-300" : "p-5"}>
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="font-semibold">Advance Payment</h2>
-        <AdvanceStatusBadge status={advance.status} />
+        <h2 className="font-semibold">Online Payment</h2>
+        <OnlinePaymentStatusBadge status={payment.status} />
       </div>
 
-      <a href={advance.screenshotUrl} target="_blank" rel="noreferrer" className="group relative block">
+      <a href={payment.screenshotUrl} target="_blank" rel="noreferrer" className="group relative block">
         {/* eslint-disable-next-line @next/next/no-img-element -- payment proof, show unmodified */}
         <img
-          src={advance.screenshotUrl}
+          src={payment.screenshotUrl}
           alt="Payment screenshot"
           className="max-h-96 w-full rounded border border-line bg-soft object-contain"
         />
@@ -78,38 +71,38 @@ export function AdvanceReview({
       </a>
 
       <dl className="mt-4 space-y-1.5 text-sm">
-        <Row label="Amount" value={<strong>{formatPrice(advance.amount)}</strong>} />
+        <Row label="Amount" value={<strong>{formatPrice(payment.amount)}</strong>} />
         <Row
           label="Sent to"
           value={
             <span className="flex flex-wrap items-center justify-end gap-2">
-              <ProviderBadge provider={advance.provider} />
-              {advance.accountNumber}
+              <ProviderBadge provider={payment.provider} />
+              {payment.accountNumber}
             </span>
           }
         />
-        <Row label="Account title" value={advance.accountTitle} />
-        {advance.transactionId && <Row label="Transaction ID" value={<span className="font-mono">{advance.transactionId}</span>} />}
-        {advance.senderNumber && <Row label="Sender number" value={advance.senderNumber} />}
-        <Row label="Submitted" value={formatDate(advance.submittedAt, true)} />
-        {advance.verifiedAt && <Row label="Verified" value={formatDate(advance.verifiedAt, true)} />}
+        <Row label="Account title" value={payment.accountTitle} />
+        {payment.transactionId && <Row label="Transaction ID" value={<span className="font-mono">{payment.transactionId}</span>} />}
+        {payment.senderNumber && <Row label="Sender number" value={payment.senderNumber} />}
+        <Row label="Submitted" value={formatDate(payment.submittedAt, true)} />
+        {payment.verifiedAt && <Row label="Verified" value={formatDate(payment.verifiedAt, true)} />}
       </dl>
 
-      {advance.status === "REJECTED" && advance.note && (
-        <p className="mt-3 rounded bg-rose-50 p-2 text-xs text-rose-800">Rejected: {advance.note}</p>
+      {payment.status === "REJECTED" && payment.note && (
+        <p className="mt-3 rounded bg-rose-50 p-2 text-xs text-rose-800">Rejected: {payment.note}</p>
       )}
 
-      {advance.status !== "VERIFIED" && orderStatus !== "CANCELLED" && (
+      {payment.status !== "VERIFIED" && orderStatus !== "CANCELLED" && (
         <div className="mt-5 space-y-3 border-t border-line pt-4 print:hidden">
           <p className="text-xs text-muted">
-            Check the amount and transaction in your {advance.provider === "BANK" ? "bank" : "wallet"} app before verifying.
+            Check the amount and transaction in your {payment.provider === "BANK" ? "bank" : "wallet"} app before verifying.
           </p>
           {!rejecting ? (
             <div className="grid grid-cols-2 gap-2">
               <Button size="sm" variant="accent" loading={verify.isPending} onClick={() => verify.mutate({ id: orderId })}>
                 <CheckCircle2 className="size-3.5" /> Verify
               </Button>
-              {advance.status === "PENDING" && orderStatus === "PENDING" && (
+              {payment.status === "PENDING" && orderStatus === "PENDING" && (
                 <Button size="sm" variant="outline" onClick={() => setRejecting(true)}>
                   <XCircle className="size-3.5" /> Reject
                 </Button>
