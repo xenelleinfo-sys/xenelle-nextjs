@@ -1,0 +1,204 @@
+// Prisma 6.x is used on purpose: Prisma 7+ does not support MongoDB yet.
+// MongoDB must run as a replica set (MongoDB Atlas does by default).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING // placed by customer, advance payment awaiting verification
+  CONFIRMED // advance verified by admin
+  STITCHING // in tailoring
+  READY // stitched, packed
+  SHIPPED // handed to courier
+  DELIVERED // delivered + cash collected
+  CANCELLED
+}
+
+// Rs. advance via JazzCash / EasyPaisa, balance cash on delivery
+enum PaymentMethod {
+  COD
+}
+
+enum PaymentStatus {
+  UNPAID
+  ADVANCE_PAID // advance verified, balance due on delivery
+  PAID
+}
+
+enum PaymentProvider {
+  JAZZCASH
+  EASYPAISA
+  BANK
+}
+
+enum AdvanceStatus {
+  PENDING // screenshot uploaded, waiting for admin
+  VERIFIED
+  REJECTED
+}
+
+enum SizeType {
+  STANDARD
+  CUSTOM
+}
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
+  address      Address?
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Category {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String    @unique
+  description String?
+  image       String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  slug         String   @unique
+  sku          String?
+  description  String
+  // stitching price in PKR
+  price        Int
+  // optional discounted price
+  salePrice    Int?
+  images       String[]
+  fabric       String?
+  // e.g. "Shirt, Dupatta, Trouser"
+  includes     String?
+  // days required for stitching
+  deliveryDays Int      @default(10)
+  sizes        String[] @default(["XS", "S", "M", "L", "XL"])
+  isActive     Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  categoryId   String   @db.ObjectId
+  category     Category @relation(fields: [categoryId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([isActive, createdAt])
+}
+
+model Order {
+  id            String               @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber   String               @unique
+  userId        String               @db.ObjectId
+  user          User                 @relation(fields: [userId], references: [id])
+  items         OrderItem[]
+  shipping      Address
+  subtotal      Int
+  shippingFee   Int
+  total         Int
+  paymentMethod PaymentMethod        @default(COD)
+  paymentStatus PaymentStatus        @default(UNPAID)
+  status        OrderStatus          @default(PENDING)
+  advance       AdvancePayment?
+  history       OrderStatusHistory[]
+  notes         String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+// Accounts customers send the advance to (managed in /admin/payments)
+model PaymentAccount {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  provider      PaymentProvider
+  accountTitle  String
+  accountNumber String
+  bankName      String?
+  instructions  String?
+  isActive      Boolean         @default(true)
+  sortOrder     Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+// ---------- embedded (composite) types ----------
+
+type Address {
+  fullName    String
+  phone       String
+  addressLine String
+  city        String
+  province    String?
+  postalCode  String?
+}
+
+type Measurements {
+  chest         Float?
+  waist         Float?
+  hips          Float?
+  shoulder      Float?
+  sleeveLength  Float?
+  shirtLength   Float?
+  trouserLength Float?
+  armhole       Float?
+  neck          Float?
+}
+
+type OrderItem {
+  productId    String        @db.ObjectId
+  name         String
+  slug         String
+  image        String?
+  unitPrice    Int
+  quantity     Int
+  sizeType     SizeType
+  size         String?
+  measurements Measurements?
+  notes        String?
+}
+
+type OrderStatusHistory {
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+}
+
+type AdvancePayment {
+  amount        Int
+  // snapshot of the account the customer paid to
+  provider      PaymentProvider
+  accountTitle  String
+  accountNumber String
+  transactionId String?
+  senderNumber  String?
+  screenshotUrl String
+  status        AdvanceStatus   @default(PENDING)
+  // reason shown to the customer when rejected
+  note          String?
+  submittedAt   DateTime
+  verifiedAt    DateTime?
+}
