@@ -16,11 +16,10 @@ import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import { cn, effectivePrice } from "@/lib/utils";
 
 const SIZE_CHART = [
-  ["XS", "32", "26", "36"],
-  ["S", "34", "28", "38"],
-  ["M", "36", "30", "40"],
-  ["L", "39", "33", "43"],
-  ["XL", "42", "36", "46"],
+  ["XS-S", "35", "29", "37"],
+  ["S-M", "37", "31", "39"],
+  ["M-L", "39", "33", "41"],
+  ["L-XL", "41", "35", "43"],
 ];
 
 const ProductPage = ({ slug }: { slug: string }) => {
