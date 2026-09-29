@@ -8,7 +8,7 @@ import { ProductImage } from "@/components/ui/product-image";
 import { ProductGrid } from "@/components/shop/product-card";
 
 const HERO_IMAGE =
-  "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=2000&q=80&auto=format&fit=crop";
+  "/brand/xenellemain.jpeg";
 
 const steps = [
   { icon: Shirt, title: "Choose a Design", text: "Browse our 2 piece and 3 piece stitching designs." },
