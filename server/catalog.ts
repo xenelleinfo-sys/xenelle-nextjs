@@ -20,6 +20,7 @@ const productCardSelect = {
   images: true,
   fabric: true,
   isFeatured: true,
+  stock: true,
   createdAt: true,
   category: { select: { name: true, slug: true } },
 } satisfies Prisma.ProductSelect;

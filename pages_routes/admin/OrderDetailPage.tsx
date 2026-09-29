@@ -137,6 +137,12 @@ const AdminOrderDetailPage = ({ id }: { id: string }) => {
             <OrderItems items={order.items} linkProducts={false} />
             <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-sm">
               <div className="flex justify-between"><dt className="text-muted">Subtotal</dt><dd>{formatPrice(order.subtotal)}</dd></div>
+              {order.coupon && !!order.discount && (
+                <div className="flex justify-between text-emerald-700">
+                  <dt>Coupon <span className="font-mono">{order.coupon.code}</span> ({order.coupon.percent}%)</dt>
+                  <dd>− {formatPrice(order.discount)}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-muted">Delivery</dt>
                 <dd>{order.shippingFee === 0 ? "Free" : formatPrice(order.shippingFee)}</dd>

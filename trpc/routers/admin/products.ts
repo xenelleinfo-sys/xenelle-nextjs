@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import { slugify } from "@/lib/utils";
 import { productInputSchema } from "@/lib/validators";
 import { invalidate, TAGS } from "@/server/cache-tags";
@@ -26,6 +27,7 @@ export const adminProductsRouter = createTRPCRouter({
         q: z.string().optional(),
         categoryId: z.string().optional(),
         status: z.enum(["active", "inactive"]).optional(),
+        stock: z.enum(["low", "out"]).optional(),
       }),
     )
     .query(async ({ input }) => {
@@ -38,6 +40,8 @@ export const adminProductsRouter = createTRPCRouter({
       }
       if (input.categoryId) where.categoryId = input.categoryId;
       if (input.status) where.isActive = input.status === "active";
+      if (input.stock === "out") where.stock = { lte: 0 };
+      if (input.stock === "low") where.stock = { gt: 0, lte: LOW_STOCK_THRESHOLD };
 
       const [items, total] = await Promise.all([
         prisma.product.findMany({
@@ -97,6 +101,19 @@ export const adminProductsRouter = createTRPCRouter({
       });
       invalidate(TAGS.products, TAGS.product(product.slug));
       return { success: true };
+    }),
+
+  // quick stock edit from the products table (null = stop tracking)
+  setStock: adminProcedure
+    .input(z.object({ id: z.string(), stock: z.number().int().min(0).max(100000).nullable() }))
+    .mutation(async ({ input }) => {
+      const product = await prisma.product.update({
+        where: { id: input.id },
+        data: { stock: input.stock },
+        select: { slug: true, stock: true },
+      });
+      invalidate(TAGS.products, TAGS.product(product.slug));
+      return product;
     }),
 
   delete: adminProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {

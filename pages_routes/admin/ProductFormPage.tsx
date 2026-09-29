@@ -28,6 +28,7 @@ const emptyProduct: ProductInput = {
   includes: "",
   deliveryDays: 10,
   sizes: ["XS", "S", "M", "L", "XL"],
+  stock: null,
   isActive: true,
   isFeatured: false,
   categoryId: "",
@@ -67,6 +68,7 @@ function ProductForm({ existing }: { existing: ExistingProduct | null }) {
           includes: existing.includes ?? "",
           deliveryDays: existing.deliveryDays,
           sizes: existing.sizes,
+          stock: existing.stock ?? null,
           isActive: existing.isActive,
           isFeatured: existing.isFeatured,
           categoryId: existing.categoryId,
@@ -204,6 +206,31 @@ function ProductForm({ existing }: { existing: ExistingProduct | null }) {
               <span>Featured on home page</span>
               <Toggle checked={form.isFeatured} onChange={(v) => set("isFeatured", v)} label="Featured" />
             </div>
+          </Panel>
+
+          <Panel className="space-y-4 p-5">
+            <div className="flex items-center justify-between text-sm">
+              <span>
+                Track stock
+                <span className="block text-xs text-muted">Off = always available to order</span>
+              </span>
+              <Toggle
+                checked={form.stock != null}
+                onChange={(on) => set("stock", on ? 0 : null)}
+                label="Track stock"
+              />
+            </div>
+            {form.stock != null && (
+              <Input
+                label="Units in stock"
+                type="number"
+                min={0}
+                value={form.stock}
+                onChange={(e) => set("stock", Math.max(0, Number(e.target.value) || 0))}
+                error={errors.stock}
+                hint="Reduced automatically when an order is placed, restored if it is cancelled."
+              />
+            )}
           </Panel>
 
           <Panel className="space-y-4 p-5">

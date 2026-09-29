@@ -108,6 +108,12 @@ const OrderDetailPage = ({
             <OrderItems items={order.items} />
             <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
               <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatPrice(order.subtotal)}</dd></div>
+              {order.coupon && !!order.discount && (
+                <div className="flex justify-between text-emerald-700">
+                  <dt>Coupon {order.coupon.code} ({order.coupon.percent}%)</dt>
+                  <dd>− {formatPrice(order.discount)}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt>Delivery</dt><dd>{order.shippingFee === 0 ? "Free" : formatPrice(order.shippingFee)}</dd>
               </div>

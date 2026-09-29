@@ -64,6 +64,7 @@ export const placeOrderSchema = z
     shipping: addressSchema,
     paymentMethod: z.enum(["COD", "ONLINE"]),
     onlinePayment: onlinePaymentProofSchema.optional().nullable(),
+    couponCode: z.string().trim().toUpperCase().max(30).optional().nullable(),
     notes: z.string().trim().max(500).optional().nullable(),
     saveAddress: z.boolean().default(true),
   })
@@ -91,6 +92,8 @@ export const productInputSchema = z
     includes: z.string().trim().max(200).optional().nullable(),
     deliveryDays: z.number().int().min(1).max(90),
     sizes: z.array(z.string().trim().min(1).max(10)).min(1),
+    // null = stock not tracked
+    stock: z.number().int().min(0, "Stock can't be negative").max(100000).nullable(),
     isActive: z.boolean(),
     isFeatured: z.boolean(),
     categoryId: z.string().min(1, "Select a category"),
@@ -119,6 +122,28 @@ export const paymentAccountInputSchema = z.object({
   sortOrder: z.number().int().min(0).max(999),
 });
 
+export const couponCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9_-]{3,30}$/, "Use 3-30 letters, numbers, - or _");
+
+export const couponInputSchema = z
+  .object({
+    code: couponCodeSchema,
+    description: z.string().trim().max(200).optional().nullable(),
+    percent: z.number().int().min(1, "At least 1%").max(100, "At most 100%"),
+    minSubtotal: z.number().int().min(0).nullable(),
+    maxUses: z.number().int().min(1, "At least 1 use").nullable(),
+    startsAt: z.coerce.date().nullable(),
+    expiresAt: z.coerce.date().nullable(),
+    isActive: z.boolean(),
+  })
+  .refine((c) => !c.startsAt || !c.expiresAt || c.expiresAt > c.startsAt, {
+    message: "Expiry must be after the start date",
+    path: ["expiresAt"],
+  });
+
 export const orderStatusSchema = z.enum(ORDER_STATUSES);
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -130,3 +155,4 @@ export type ProductInput = z.infer<typeof productInputSchema>;
 export type CategoryInput = z.infer<typeof categoryInputSchema>;
 export type OnlinePaymentProofInput = z.infer<typeof onlinePaymentProofSchema>;
 export type PaymentAccountInput = z.infer<typeof paymentAccountInputSchema>;
+export type CouponInput = z.infer<typeof couponInputSchema>;

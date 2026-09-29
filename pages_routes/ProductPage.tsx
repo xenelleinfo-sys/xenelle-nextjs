@@ -9,9 +9,10 @@ import { useCart } from "@/components/cart/cart-context";
 import { QuantityInput } from "@/components/cart/quantity-input";
 import { Button } from "@/components/ui/button";
 import { Price } from "@/components/ui/misc";
-import { ProductImage } from "@/components/ui/product-image";
 import { ProductGrid } from "@/components/shop/product-card";
+import { ProductGallery } from "@/components/shop/product-gallery";
 import { MeasurementsForm, toMeasurements, type MeasurementValues } from "@/components/shop/measurements-form";
+import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import { cn, effectivePrice } from "@/lib/utils";
 
 const SIZE_CHART = [
@@ -27,7 +28,6 @@ const ProductPage = ({ slug }: { slug: string }) => {
   const { data } = useSuspenseQuery(trpc.catalog.product.queryOptions({ slug }));
   const cart = useCart();
 
-  const [imageIndex, setImageIndex] = useState(0);
   const [sizeType, setSizeType] = useState<"STANDARD" | "CUSTOM">("STANDARD");
   const [size, setSize] = useState<string | null>(null);
   const [measurements, setMeasurements] = useState<MeasurementValues>({});
@@ -37,8 +37,13 @@ const ProductPage = ({ slug }: { slug: string }) => {
 
   if (!data) return null;
   const { product, related } = data;
+  const soldOut = product.stock != null && product.stock <= 0;
+  // units already in the bag count against the remaining stock
+  const inBag = cart.items.filter((i) => i.productId === product.id).reduce((n, i) => n + i.quantity, 0);
+  const maxQty = product.stock == null ? 10 : Math.max(0, Math.min(10, product.stock - inBag));
 
   const addToCart = () => {
+    if (soldOut || maxQty === 0) return;
     const m = sizeType === "CUSTOM" ? toMeasurements(measurements) : null;
     if (sizeType === "STANDARD" && !size) return toast.error("Please select a size");
     if (sizeType === "CUSTOM" && !m) return toast.error("Please enter at least one measurement");
@@ -49,7 +54,7 @@ const ProductPage = ({ slug }: { slug: string }) => {
       name: product.name,
       image: product.images[0] ?? null,
       unitPrice: effectivePrice(product),
-      quantity,
+      quantity: Math.min(quantity, maxQty),
       sizeType,
       size: sizeType === "STANDARD" ? size : null,
       measurements: m,
@@ -70,44 +75,27 @@ const ProductPage = ({ slug }: { slug: string }) => {
         <span className="text-foreground">{product.name}</span>
       </nav>
 
-      <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
         {/* Gallery */}
-        <div className="flex flex-col-reverse gap-3 sm:flex-row">
-          {product.images.length > 1 && (
-            <div className="flex gap-3 sm:w-20 sm:flex-col">
-              {product.images.map((img, i) => (
-                <button
-                  key={img + i}
-                  onClick={() => setImageIndex(i)}
-                  className={cn(
-                    "relative aspect-[3/4] w-16 shrink-0 overflow-hidden bg-soft ring-1 sm:w-full",
-                    i === imageIndex ? "ring-foreground" : "ring-transparent opacity-70 hover:opacity-100",
-                  )}
-                  aria-label={`Show image ${i + 1}`}
-                >
-                  <ProductImage src={img} alt="" fill sizes="80px" />
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="relative aspect-[3/4] flex-1 overflow-hidden bg-soft">
-            <ProductImage
-              src={product.images[imageIndex]}
-              alt={product.name}
-              fill
-              priority
-              sizes="(min-width: 1024px) 50vw, 100vw"
-            />
-          </div>
-        </div>
+        <ProductGallery images={product.images} alt={product.name} />
 
         {/* Details */}
-        <div className="lg:sticky lg:top-44 lg:self-start">
+        <div className="min-w-0 lg:sticky lg:top-44 lg:self-start">
           <p className="eyebrow">{product.category.name}</p>
           <h1 className="heading-display mt-2 text-4xl lg:text-5xl">{product.name}</h1>
           {product.sku && <p className="mt-2 text-xs text-muted">SKU: {product.sku}</p>}
           <Price price={product.price} salePrice={product.salePrice} className="mt-4 text-xl" />
           <p className="mt-1 text-xs text-muted">Stitching included · Free delivery on online payment · COD available</p>
+          {soldOut ? (
+            <p className="mt-3 inline-block bg-foreground px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-white">
+              Sold out
+            </p>
+          ) : (
+            product.stock != null &&
+            product.stock <= LOW_STOCK_THRESHOLD && (
+              <p className="mt-3 text-sm font-medium text-danger">Only {product.stock} left — order soon</p>
+            )
+          )}
 
           {/* Sizing */}
           <div className="mt-8">
@@ -186,9 +174,9 @@ const ProductPage = ({ slug }: { slug: string }) => {
             </label>
 
             <div className="mt-6 flex gap-3">
-              <QuantityInput value={quantity} onChange={setQuantity} />
-              <Button onClick={addToCart} size="lg" className="flex-1">
-                Add to Bag
+              <QuantityInput value={Math.min(quantity, Math.max(1, maxQty))} onChange={setQuantity} max={Math.max(1, maxQty)} />
+              <Button onClick={addToCart} size="lg" className="flex-1" disabled={soldOut || maxQty === 0}>
+                {soldOut ? "Sold Out" : maxQty === 0 ? "All stock in your bag" : "Add to Bag"}
               </Button>
             </div>
           </div>

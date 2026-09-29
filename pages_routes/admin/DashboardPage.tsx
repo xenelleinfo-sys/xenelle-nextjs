@@ -25,6 +25,19 @@ const DashboardPage = () => {
           <span className="font-medium">Review →</span>
         </Link>
       )}
+      {(data.outOfStock > 0 || data.lowStock > 0) && (
+        <Link
+          href="/admin/products"
+          className="mb-4 flex items-center justify-between rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 hover:bg-rose-100"
+        >
+          <span>
+            {data.outOfStock > 0 && <><strong>{data.outOfStock}</strong> out of stock</>}
+            {data.outOfStock > 0 && data.lowStock > 0 && " · "}
+            {data.lowStock > 0 && <><strong>{data.lowStock}</strong> running low</>}
+          </span>
+          <span className="font-medium">Update stock →</span>
+        </Link>
+      )}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-6">
         <StatCard label="Revenue" value={formatPrice(data.revenue)} hint={`${data.delivered} delivered`} icon={<Banknote className="size-4" />} />
         <StatCard label="Total Orders" value={data.orders} icon={<ShoppingCart className="size-4" />} />

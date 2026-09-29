@@ -5,7 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { CLOUDINARY_FOLDERS, isOwnCloudinaryUrl } from "@/lib/cloudinary";
 import { DELIVERY_FEE } from "@/lib/constants";
 import { effectivePrice } from "@/lib/utils";
+import { resolveCoupon } from "@/server/coupons";
+import { releaseOrder, reserveStock } from "@/server/inventory";
+import { invalidate, TAGS } from "@/server/cache-tags";
 import {
+  couponCodeSchema,
   onlinePaymentProofSchema,
   placeOrderSchema,
   trackOrderSchema,
@@ -82,7 +86,16 @@ export const orderRouter = createTRPCRouter({
     const ids = [...new Set(input.items.map((i) => i.productId))];
     const products = await prisma.product.findMany({
       where: { id: { in: ids }, isActive: true },
-      select: { id: true, name: true, slug: true, images: true, price: true, salePrice: true, sizes: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        images: true,
+        price: true,
+        salePrice: true,
+        sizes: true,
+        stock: true,
+      },
     });
     const byId = new Map(products.map((p) => [p.id, p]));
 
@@ -112,8 +125,10 @@ export const orderRouter = createTRPCRouter({
     });
 
     const subtotal = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+    const applied = input.couponCode ? await resolveCoupon(input.couponCode, subtotal) : null;
+    const discount = applied?.discount ?? 0;
     const shippingFee = DELIVERY_FEE[input.paymentMethod];
-    const total = subtotal + shippingFee;
+    const total = subtotal - discount + shippingFee;
     const onlinePayment =
       input.paymentMethod === "ONLINE" ? await buildOnlinePayment(input.onlinePayment!, total) : null;
     const user = ctx.user;
@@ -122,32 +137,54 @@ export const orderRouter = createTRPCRouter({
     let order;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        order = await prisma.order.create({
-          data: {
-            orderNumber: generateOrderNumber(),
-            userId: user?.id ?? null,
-            email: input.email,
-            accessToken,
-            items,
-            shipping: input.shipping,
-            subtotal,
-            shippingFee,
-            total,
-            paymentMethod: input.paymentMethod,
-            onlinePayment,
-            notes: input.notes || null,
-            history: [
-              {
-                status: "PENDING",
-                note:
-                  input.paymentMethod === "ONLINE"
-                    ? "Order placed — payment screenshot submitted for verification"
-                    : "Order placed — Cash on Delivery",
-                createdAt: new Date(),
+        // stock, coupon usage and the order succeed or fail together
+        order = await prisma.$transaction(async (tx) => {
+          await reserveStock(tx, items, byId);
+          if (applied) {
+            const { coupon } = applied;
+            const used = await tx.coupon.updateMany({
+              where: {
+                id: coupon.id,
+                isActive: true,
+                ...(coupon.maxUses != null ? { usedCount: { lt: coupon.maxUses } } : {}),
               },
-            ],
-          },
-          select: { orderNumber: true, accessToken: true },
+              data: { usedCount: { increment: 1 } },
+            });
+            if (used.count === 0) {
+              throw new TRPCError({ code: "BAD_REQUEST", message: "This coupon has reached its usage limit" });
+            }
+          }
+          return tx.order.create({
+            data: {
+              orderNumber: generateOrderNumber(),
+              userId: user?.id ?? null,
+              email: input.email,
+              accessToken,
+              items,
+              shipping: input.shipping,
+              subtotal,
+              coupon: applied
+                ? { couponId: applied.coupon.id, code: applied.coupon.code, percent: applied.coupon.percent }
+                : null,
+              discount,
+              shippingFee,
+              total,
+              paymentMethod: input.paymentMethod,
+              onlinePayment,
+              notes: input.notes || null,
+              history: [
+                {
+                  status: "PENDING",
+                  note:
+                    input.paymentMethod === "ONLINE"
+                      ? "Order placed — payment screenshot submitted for verification"
+                      : "Order placed — Cash on Delivery",
+                  createdAt: new Date(),
+                },
+              ],
+            },
+            select: { orderNumber: true, accessToken: true },
+          });
         });
         break;
       } catch (e) {
@@ -156,12 +193,24 @@ export const orderRouter = createTRPCRouter({
       }
     }
 
+    // stock shown on product pages changed -> refresh the catalog cache
+    const tracked = products.filter((p) => p.stock != null);
+    if (tracked.length) invalidate(TAGS.products, ...tracked.map((p) => TAGS.product(p.slug)));
+
     if (user && input.saveAddress) {
       await prisma.user.update({ where: { id: user.id }, data: { address: { set: input.shipping } } });
     }
 
     return order!;
   }),
+
+  // Checkout preview: validates a code and returns the discount for this subtotal.
+  checkCoupon: optionalUserProcedure
+    .input(z.object({ code: couponCodeSchema, subtotal: z.number().int().min(0) }))
+    .mutation(async ({ input }) => {
+      const { coupon, discount } = await resolveCoupon(input.code, input.subtotal);
+      return { code: coupon.code, percent: coupon.percent, discount };
+    }),
 
   // Account holders see their own orders plus guest orders placed with their email.
   mine: authProcedure.query(({ ctx }) =>
@@ -243,13 +292,17 @@ export const orderRouter = createTRPCRouter({
         message: "Only pending orders can be cancelled. Please contact us.",
       });
     }
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: "CANCELLED",
-        history: { push: { status: "CANCELLED", note: "Cancelled by customer", createdAt: new Date() } },
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: "CANCELLED",
+          history: { push: { status: "CANCELLED", note: "Cancelled by customer", createdAt: new Date() } },
+        },
+      });
+      await releaseOrder(tx, order);
     });
+    invalidate(TAGS.products);
     return { success: true };
   }),
 });

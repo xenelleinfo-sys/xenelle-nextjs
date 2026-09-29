@@ -26,6 +26,14 @@ Next.js 16 (App Router, Cache Components) · Prisma 6 + MongoDB · tRPC 11 + Tan
 - **Cash on Delivery** (full amount + `COD_DELIVERY_FEE` = Rs. 350): admin confirms by phone and moves the order forward; delivered = `PAID`.
 - Fees live in `lib/constants.ts` (`DELIVERY_FEE`). Payment accounts are managed in **Admin → Payment Accounts**; without an active account only COD is offered.
 
+## Coupons
+
+**Admin → Coupons**: code + % off the subtotal (before delivery), with optional minimum order, total usage limit and start/expiry dates. Customers apply the code at checkout; the server re-validates it when the order is placed and counts the use in the same transaction as the order (so a limited coupon can't be over-used). Orders keep a snapshot (code, %, discount); cancelling an order gives the use back.
+
+## Stock
+
+Each product has optional stock (**Track stock** in the product form, or click the Stock badge in the products table). Empty = not tracked = always orderable. Placing an order reserves stock atomically (`server/inventory.ts`, no overselling); cancelling (customer or admin) restores it. Out-of-stock products show **Sold out**, low stock (≤ `LOW_STOCK_THRESHOLD`) shows "Only X left", and the dashboard flags low / out-of-stock products. Cancelled orders can't be reopened, so stock is never counted twice.
+
 ## Image uploads (Cloudinary)
 
 Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`. `app/api/upload/route.ts` does signed uploads (no SDK):

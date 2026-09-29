@@ -97,6 +97,8 @@ model Product {
   // days required for stitching
   deliveryDays Int      @default(10)
   sizes        String[] @default(["XS", "S", "M", "L", "XL"])
+  // units available; null = stock not tracked (always orderable)
+  stock        Int?
   isActive     Boolean  @default(true)
   isFeatured   Boolean  @default(false)
   categoryId   String   @db.ObjectId
@@ -121,6 +123,9 @@ model Order {
   items         OrderItem[]
   shipping      Address
   subtotal      Int
+  // coupon applied at checkout (snapshot)
+  coupon        AppliedCoupon?
+  discount      Int?
   shippingFee   Int
   total         Int
   paymentMethod PaymentMethod        @default(COD)
@@ -150,6 +155,25 @@ model PaymentAccount {
   sortOrder     Int             @default(0)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+}
+
+// Discount codes managed in /admin/coupons
+model Coupon {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  // stored uppercase, e.g. "EID20"
+  code        String    @unique
+  description String?
+  // percentage off the subtotal (1-100)
+  percent     Int
+  // optional rules
+  minSubtotal Int?
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  startsAt    DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 // ---------- embedded (composite) types ----------
@@ -208,4 +232,10 @@ type OnlinePayment {
   note          String?
   submittedAt   DateTime
   verifiedAt    DateTime?
+}
+
+type AppliedCoupon {
+  couponId String @db.ObjectId
+  code     String
+  percent  Int
 }

@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ORDER_STATUSES } from "@/lib/constants";
 import { orderStatusSchema } from "@/lib/validators";
+import { invalidate, TAGS } from "@/server/cache-tags";
+import { releaseOrder } from "@/server/inventory";
 import { adminProcedure, createTRPCRouter } from "../../init";
 
 export const adminOrdersRouter = createTRPCRouter({
@@ -84,11 +86,24 @@ export const adminOrdersRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const order = await prisma.order.findUnique({
         where: { id: input.id },
-        select: { status: true, paymentMethod: true, onlinePayment: { select: { status: true } } },
+        select: {
+          status: true,
+          paymentMethod: true,
+          onlinePayment: { select: { status: true } },
+          items: { select: { productId: true, quantity: true } },
+          coupon: { select: { couponId: true } },
+        },
       });
       if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
       if (order.status === input.status) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Order already has this status" });
+      }
+      // stock and coupon use were given back on cancel; reopening would double count them
+      if (order.status === "CANCELLED") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cancelled orders can't be reopened. Ask the customer to place a new order.",
+        });
       }
       // online orders are only confirmed once their payment screenshot is verified
       if (
@@ -102,16 +117,22 @@ export const adminOrdersRouter = createTRPCRouter({
         });
       }
 
-      return prisma.order.update({
-        where: { id: input.id },
-        data: {
-          status: input.status,
-          // COD: cash is collected on delivery
-          ...(input.status === "DELIVERED" ? { paymentStatus: "PAID" as const } : {}),
-          history: { push: { status: input.status, note: input.note || null, createdAt: new Date() } },
-        },
-        select: { id: true, status: true },
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.order.update({
+          where: { id: input.id },
+          data: {
+            status: input.status,
+            // COD: cash is collected on delivery
+            ...(input.status === "DELIVERED" ? { paymentStatus: "PAID" as const } : {}),
+            history: { push: { status: input.status, note: input.note || null, createdAt: new Date() } },
+          },
+          select: { id: true, status: true },
+        });
+        if (input.status === "CANCELLED") await releaseOrder(tx, order);
+        return result;
       });
+      if (input.status === "CANCELLED") invalidate(TAGS.products);
+      return updated;
     }),
 
   verifyPayment: adminProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {

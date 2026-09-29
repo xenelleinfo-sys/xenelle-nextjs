@@ -13,6 +13,7 @@ import {
   Package,
   ShoppingCart,
   Users,
+  TicketPercent,
   Wallet,
   X,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const nav = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
   { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/coupons", label: "Coupons", icon: TicketPercent },
   { href: "/admin/payments", label: "Payment Accounts", icon: Wallet },
 ];
 

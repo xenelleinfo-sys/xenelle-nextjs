@@ -62,6 +62,8 @@ export const PAYMENT_STATUS_LABEL = {
 } as const;
 
 export const PRODUCTS_PER_PAGE = 12;
+/** Products at or below this many units are flagged as low stock. */
+export const LOW_STOCK_THRESHOLD = 3;
 
 export const ORDER_STATUSES = [
   "PENDING",

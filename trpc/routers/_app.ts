@@ -1,6 +1,7 @@
 import { createTRPCRouter } from "../init";
 import { accountRouter } from "./account";
 import { adminCategoriesRouter } from "./admin/categories";
+import { adminCouponsRouter } from "./admin/coupons";
 import { adminDashboardRouter } from "./admin/dashboard";
 import { adminOrdersRouter } from "./admin/orders";
 import { adminPaymentAccountsRouter } from "./admin/payment-accounts";
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
     categories: adminCategoriesRouter,
     orders: adminOrdersRouter,
     paymentAccounts: adminPaymentAccountsRouter,
+    coupons: adminCouponsRouter,
   }),
   // admin: customers
   user: userRouter,

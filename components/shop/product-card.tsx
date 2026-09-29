@@ -5,6 +5,7 @@ import { ProductImage } from "@/components/ui/product-image";
 
 export function ProductCard({ product, priority }: { product: ProductCardData; priority?: boolean }) {
   const onSale = product.salePrice != null && product.salePrice < product.price;
+  const soldOut = product.stock != null && product.stock <= 0;
   const [first, second] = product.images;
   return (
     <Link href={`/product/${product.slug}`} className="group block">
@@ -26,10 +27,16 @@ export function ProductCard({ product, priority }: { product: ProductCardData; p
             className="opacity-0 transition duration-700 group-hover:opacity-100"
           />
         )}
-        {onSale && (
-          <span className="absolute left-3 top-3 bg-danger px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
-            Sale
+        {soldOut ? (
+          <span className="absolute left-3 top-3 bg-foreground px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+            Sold out
           </span>
+        ) : (
+          onSale && (
+            <span className="absolute left-3 top-3 bg-danger px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+              Sale
+            </span>
+          )
         )}
       </div>
       <div className="mt-3 space-y-1">

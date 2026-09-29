@@ -42,3 +42,15 @@ export function balanceDue(o: {
   const paidOnline = o.onlinePayment?.status === "VERIFIED" ? o.onlinePayment.amount : 0;
   return Math.max(0, o.total - paidOnline);
 }
+
+/** Coupon discount on the subtotal, rounded to whole rupees. */
+export function couponDiscount(subtotal: number, percent: number) {
+  return Math.min(subtotal, Math.round((subtotal * percent) / 100));
+}
+
+/** null stock = not tracked (always available). */
+export function stockState(stock: number | null | undefined) {
+  if (stock == null) return "untracked" as const;
+  if (stock <= 0) return "out" as const;
+  return "in" as const;
+}

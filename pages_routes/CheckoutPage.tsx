@@ -20,7 +20,8 @@ import { EmptyState, PageLoader } from "@/components/ui/misc";
 import { ProductImage } from "@/components/ui/product-image";
 import { DELIVERY_FEE, PAYMENT_METHODS, type PaymentMethodValue } from "@/lib/constants";
 import { orderHref, saveRecentOrder } from "@/lib/recent-orders";
-import { cn, formatPrice } from "@/lib/utils";
+import { CouponBox } from "@/components/shop/coupon-box";
+import { cn, couponDiscount, formatPrice } from "@/lib/utils";
 import { addressSchema, type AddressInput, type OnlinePaymentProofInput } from "@/lib/validators";
 
 const emailSchema = z.email();
@@ -45,6 +46,17 @@ const CheckoutPage = ({ loggedIn }: { loggedIn: boolean }) => {
   const [method, setMethod] = useState<PaymentMethodValue>(accounts.length > 0 ? "ONLINE" : "COD");
   const [proof, setProof] = useState<OnlinePaymentProofInput>(emptyOnlinePayment);
   const [proofError, setProofError] = useState<string>();
+  const [coupon, setCoupon] = useState<{ code: string; percent: number } | null>(null);
+
+  const checkCoupon = useMutation(
+    trpc.order.checkCoupon.mutationOptions({
+      onSuccess: (c) => {
+        setCoupon({ code: c.code, percent: c.percent });
+        toast.success(`${c.code} applied — ${c.percent}% off`);
+      },
+      onError: (e) => toast.error(e.message),
+    }),
+  );
 
   const placeOrder = useMutation(
     trpc.order.place.mutationOptions({
@@ -71,7 +83,8 @@ const CheckoutPage = ({ loggedIn }: { loggedIn: boolean }) => {
   }
 
   const deliveryFee = DELIVERY_FEE[method];
-  const total = cart.subtotal + deliveryFee;
+  const discount = coupon ? couponDiscount(cart.subtotal, coupon.percent) : 0;
+  const total = cart.subtotal - discount + deliveryFee;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,6 +112,7 @@ const CheckoutPage = ({ loggedIn }: { loggedIn: boolean }) => {
       shipping: parsed.data,
       paymentMethod: method,
       onlinePayment: method === "ONLINE" ? proof : null,
+      couponCode: coupon?.code ?? null,
       notes: notes.trim() || null,
       saveAddress,
       items: cart.items.map((i) => ({
@@ -239,8 +253,22 @@ const CheckoutPage = ({ loggedIn }: { loggedIn: boolean }) => {
               </li>
             ))}
           </ul>
+          <CouponBox
+            applied={coupon}
+            loading={checkCoupon.isPending}
+            onApply={(code) => checkCoupon.mutate({ code, subtotal: cart.subtotal })}
+            onRemove={() => setCoupon(null)}
+          />
           <dl className="mt-6 space-y-3 border-t border-line pt-5 text-sm">
             <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatPrice(cart.subtotal)}</dd></div>
+            {coupon && (
+              <div className="flex justify-between text-emerald-700">
+                <dt>
+                  Coupon {coupon.code} ({coupon.percent}%)
+                </dt>
+                <dd>− {formatPrice(discount)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt>Delivery</dt>
               <dd className={deliveryFee === 0 ? "text-emerald-700" : undefined}>
