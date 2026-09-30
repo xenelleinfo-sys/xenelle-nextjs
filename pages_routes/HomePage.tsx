@@ -1,14 +1,14 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { ArrowRight, Banknote, Ruler, Shirt } from "lucide-react";
 import { useTRPC } from "@/trpc/client";
 import { ButtonLink } from "@/components/ui/button";
-import { ProductImage } from "@/components/ui/product-image";
 import { ProductGrid } from "@/components/shop/product-card";
 
-const HERO_IMAGE =
-  "/brand/xenellemain.jpeg";
+const HERO_IMAGE_DESKTOP = "/brand/xenellemain.jpeg";
+const HERO_IMAGE_MOBILE = "/brand/xenelle-mobile.jpg";
 
 const steps = [
   { icon: Shirt, title: "Choose a Design", text: "Browse our 2 piece and 3 piece stitching designs." },
@@ -27,7 +27,22 @@ const HomePage = () => {
     <>
       {/* Hero */}
       <section className="relative h-[70vh] min-h-[460px] overflow-hidden bg-soft lg:h-[82vh]">
-        <ProductImage src={HERO_IMAGE} alt="Custom stitched dresses" fill priority sizes="100vw" />
+        <Image
+          src={HERO_IMAGE_DESKTOP}
+          alt="Custom stitched dresses"
+          fill
+          priority
+          unoptimized
+          className="hidden lg:block object-cover"
+        />
+        <Image
+          src={HERO_IMAGE_MOBILE}
+          alt="Custom stitched dresses"
+          fill
+          priority
+          unoptimized
+          className="block lg:hidden object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
         <div className="container-x relative flex h-full flex-col items-center justify-end pb-16 text-center text-white lg:pb-24">
           <p className="text-[11px] uppercase tracking-[0.35em]">New Season · Made to Measure</p>
