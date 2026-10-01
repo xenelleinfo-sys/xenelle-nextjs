@@ -27,14 +27,15 @@ const HomePage = () => {
   return (
     <>
       {/* Hero */}
-      <section className="relative h-[70vh] min-h-[460px] overflow-hidden bg-soft lg:h-[82vh]">
+      <section className="relative isolate h-[70vh] min-h-[460px] overflow-hidden bg-soft lg:h-[82vh]">
         <Image
           src={HERO_IMAGE_DESKTOP}
           alt="Custom stitched dresses"
           fill
           priority
           unoptimized
-          className="hidden lg:block object-cover"
+          sizes="100vw"
+          className="absolute inset-0 z-0 hidden object-cover lg:block"
         />
         <Image
           src={HERO_IMAGE_MOBILE}
@@ -42,10 +43,11 @@ const HomePage = () => {
           fill
           priority
           unoptimized
-          className="block lg:hidden object-cover"
+          sizes="100vw"
+          className="absolute inset-0 z-0 block object-cover lg:hidden"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-        <div className="container-x relative flex h-full flex-col items-center justify-end pb-16 text-center text-white lg:pb-24">
+        <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div className="container-x relative z-20 flex h-full flex-col items-center justify-end pb-16 text-center text-white lg:pb-24">
           <p className="text-[11px] uppercase tracking-[0.35em]">New Season · Made to Measure</p>
           <h1 className="heading-display mt-4 max-w-3xl text-5xl leading-tight lg:text-7xl">
             Stitched Just For You
