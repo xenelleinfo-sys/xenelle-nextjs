@@ -6,6 +6,7 @@ import { ArrowRight, Banknote, Ruler, Shirt } from "lucide-react";
 import { useTRPC } from "@/trpc/client";
 import { ButtonLink } from "@/components/ui/button";
 import { ProductGrid } from "@/components/shop/product-card";
+import { ProductImage } from "@/components/ui/product-image";
 
 const HERO_IMAGE_DESKTOP = "/brand/xenellemain.jpeg";
 const HERO_IMAGE_MOBILE = "/brand/xenelle-mobile.jpg";
