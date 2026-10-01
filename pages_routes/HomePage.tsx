@@ -52,10 +52,10 @@ const HomePage = () => {
           <p className="text-[11px] uppercase tracking-[0.35em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]">
             WINTER TRANSITIONAL PRET · READY TO SHIP
           </p>
-          <h1 className="heading-display mt-4 max-w-3xl text-5xl leading-tight text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)] lg:text-7xl">
+          <h1 className="heading-display mt-4 max-w-3xl text-4xl leading-tight text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)] lg:text-6xl">
             Premium Stitched Winter Suits
           </h1>
-          <p className="mt-4 ml-16 max-w-2xl text-sm text-center text-white/90 drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]">
+          <p className="mt-4 ml-0 max-w-2xl text-sm text-center text-white/90 drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] lg:ml-16">
             Dhanak, Khaddar & Cotton 2-Piece & 3-Piece Pret. Modest 2.5m dupattas with Open Parcel Cash on Delivery nationwide.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
