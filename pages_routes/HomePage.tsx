@@ -27,7 +27,7 @@ const HomePage = () => {
   return (
     <>
       {/* Hero */}
-      <section className="relative isolate h-[70vh] min-h-[460px] overflow-hidden bg-soft lg:h-[82vh]">
+      <section className="relative isolate h-[55vh] min-h-[350px] overflow-hidden bg-soft lg:h-[82vh]">
         <Image
           src={HERO_IMAGE_DESKTOP}
           alt="Custom stitched dresses"
@@ -44,7 +44,7 @@ const HomePage = () => {
           priority
           unoptimized
           sizes="100vw"
-          className="absolute inset-0 z-0 block object-cover lg:hidden"
+          className="absolute inset-0 z-0 block object-cover object-[0%_55%] lg:hidden"
         />
         <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/75 via-black/35 to-black/15" />
         <div className="container-x relative z-20 flex h-full flex-col items-center justify-end pb-16 text-center text-white lg:pb-24">
