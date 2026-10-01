@@ -48,22 +48,22 @@ const HomePage = () => {
         />
         <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/90 via-black/60 to-black/30" />
         <div className="container-x relative z-20 flex h-full flex-col items-center justify-end pb-16 text-center text-white lg:pb-24">
-          <div className="rounded-2xl bg-black/40 p-8 backdrop-blur-sm lg:bg-black/50 lg:p-10">
+          <div className="mx-auto max-w-4xl rounded-2xl bg-black/40 p-8 backdrop-blur-sm lg:bg-black/50 lg:p-10">
           <p className="text-[11px] uppercase tracking-[0.35em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]">
-            New Season · Made to Measure
+            WINTER TRANSITIONAL PRET · READY TO SHIP
           </p>
           <h1 className="heading-display mt-4 max-w-3xl text-5xl leading-tight text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)] lg:text-7xl">
-            Stitched Just For You
+            Premium Stitched Winter Suits
           </h1>
-          <p className="mt-4 max-w-md text-sm text-white/90 drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]">
-            Designer 2 piece & 3 piece suits tailored to your size. Cash on delivery across Pakistan.
+          <p className="mt-4 ml-16 max-w-2xl text-sm text-center text-white/90 drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]">
+            Dhanak, Khaddar & Cotton 2-Piece & 3-Piece Pret. Modest 2.5m dupattas with Open Parcel Cash on Delivery nationwide.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <ButtonLink href="/shop" size="lg" className="">
               Shop Now
             </ButtonLink>
-            <ButtonLink href="/track" size="lg" variant="outline" className="border-white text-white">
-              Track Order
+            <ButtonLink href="https://wa.me/923001234567" size="lg" variant="outline" className="border-white text-white">
+              WhatsApp Order
             </ButtonLink>
           </div>
           </div>
