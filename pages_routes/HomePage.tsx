@@ -46,9 +46,8 @@ const HomePage = () => {
           sizes="100vw"
           className="absolute inset-0 z-0 block object-cover lg:hidden"
         />
-        <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/90 via-black/60 to-black/30" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/75 via-black/35 to-black/15" />
         <div className="container-x relative z-20 flex h-full flex-col items-center justify-end pb-16 text-center text-white lg:pb-24">
-          <div className="mx-auto max-w-4xl rounded-2xl bg-black/40 p-8 backdrop-blur-sm lg:bg-black/50 lg:p-10">
           <p className="text-[11px] uppercase tracking-[0.35em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]">
             WINTER TRANSITIONAL PRET · READY TO SHIP
           </p>
@@ -65,7 +64,6 @@ const HomePage = () => {
             <ButtonLink href="https://wa.me/923001234567" size="lg" variant="outline" className="border-white text-white">
               WhatsApp Order
             </ButtonLink>
-          </div>
           </div>
         </div>
       </section>
