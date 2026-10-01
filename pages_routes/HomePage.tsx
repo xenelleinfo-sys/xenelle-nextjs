@@ -8,7 +8,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { ProductGrid } from "@/components/shop/product-card";
 import { ProductImage } from "@/components/ui/product-image";
 
-const HERO_IMAGE_DESKTOP = "/brand/xenellemain.jpeg";
+const HERO_IMAGE_DESKTOP = "/brand/hero-desktop.jpg";
 const HERO_IMAGE_MOBILE = "/brand/hero-new.jpg";
 
 const steps = [
