@@ -19,7 +19,7 @@ export const SITE_KEYWORDS = [
 export const CONTACT = {
   email: "xenelle.info@gmail.com",
   phone: "+92 300 0000000",
-  whatsapp: "0300 0000000",
+  whatsapp: "03395550008",
   hours: "Mon – Sat, 10am – 7pm",
   instagram: "https://www.instagram.com/xenelle.me/",
 };

@@ -9,7 +9,7 @@ import { ProductGrid } from "@/components/shop/product-card";
 import { ProductImage } from "@/components/ui/product-image";
 
 const HERO_IMAGE_DESKTOP = "/brand/xenellemain.jpeg";
-const HERO_IMAGE_MOBILE = "/brand/xenelle-mobile.jpg";
+const HERO_IMAGE_MOBILE = "/brand/hero-new.jpg";
 
 const steps = [
   { icon: Shirt, title: "Choose a Design", text: "Browse our 2 piece and 3 piece stitching designs." },
@@ -27,7 +27,7 @@ const HomePage = () => {
   return (
     <>
       {/* Hero */}
-      <section className="relative isolate h-[55vh] min-h-[350px] overflow-hidden bg-soft lg:h-[82vh]">
+      <section className="relative isolate h-[85vh] min-h-[500px] overflow-hidden bg-soft lg:h-[100vh]">
         <Image
           src={HERO_IMAGE_DESKTOP}
           alt="Custom stitched dresses"
@@ -35,7 +35,7 @@ const HomePage = () => {
           priority
           unoptimized
           sizes="100vw"
-          className="absolute inset-0 z-0 hidden object-cover lg:block"
+          className="absolute inset-0 z-0 hidden object-cover object-center lg:block"
         />
         <Image
           src={HERO_IMAGE_MOBILE}
@@ -44,7 +44,7 @@ const HomePage = () => {
           priority
           unoptimized
           sizes="100vw"
-          className="absolute inset-0 z-0 block object-cover object-[0%_55%] lg:hidden"
+          className="absolute inset-0 z-0 block object-cover lg:hidden"
         />
         <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/75 via-black/35 to-black/15" />
         <div className="container-x relative z-20 flex h-full flex-col items-center justify-end pb-16 text-center text-white lg:pb-24">
