@@ -17,10 +17,11 @@ export const SITE_KEYWORDS = [
   "cash on delivery Pakistan",
 ];
 export const CONTACT = {
-  email: "support@xenelle.pk",
+  email: "xenelle.info@gmail.com",
   phone: "+92 300 0000000",
   whatsapp: "0300 0000000",
   hours: "Mon – Sat, 10am – 7pm",
+  instagram: "https://www.instagram.com/xenelle.me/",
 };
 
 /** Delivery charges by payment method: online payment ships free, COD pays delivery. */

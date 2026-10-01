@@ -61,9 +61,6 @@ const HomePage = () => {
             <ButtonLink href="/shop" size="lg" className="">
               Shop Now
             </ButtonLink>
-            <ButtonLink href="https://wa.me/923001234567" size="lg" variant="outline" className="border-white text-white">
-              WhatsApp Order
-            </ButtonLink>
           </div>
         </div>
       </section>
