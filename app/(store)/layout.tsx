@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { MetaPixel } from "@/components/analytics/meta-pixel";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
@@ -16,7 +15,6 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
       <Suspense>
         <CartDrawer />
       </Suspense>
-      <MetaPixel />
     </>
   );
 }
