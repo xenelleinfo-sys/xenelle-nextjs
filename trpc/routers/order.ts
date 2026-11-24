@@ -8,6 +8,7 @@ import { effectivePrice } from "@/lib/utils";
 import { resolveCoupon } from "@/server/coupons";
 import { releaseOrder, reserveStock } from "@/server/inventory";
 import { invalidate, TAGS } from "@/server/cache-tags";
+import { trackMetaEvent } from "@/server/meta-capi";
 import {
   couponCodeSchema,
   onlinePaymentProofSchema,
@@ -200,6 +201,27 @@ export const orderRouter = createTRPCRouter({
     if (user && input.saveAddress) {
       await prisma.user.update({ where: { id: user.id }, data: { address: { set: input.shipping } } });
     }
+
+    await trackMetaEvent({
+      eventName: "Purchase",
+      eventId: `purchase-${order!.orderNumber}`,
+      user: {
+        email: input.email,
+        phone: input.shipping.phone,
+        fullName: input.shipping.fullName,
+        city: input.shipping.city,
+        externalId: user?.id,
+      },
+      customData: {
+        currency: "PKR",
+        value: total,
+        order_id: order!.orderNumber,
+        content_type: "product",
+        content_ids: items.map((i) => i.productId),
+        contents: items.map((i) => ({ id: i.productId, quantity: i.quantity, item_price: i.unitPrice })),
+        num_items: items.reduce((n, i) => n + i.quantity, 0),
+      },
+    });
 
     return order!;
   }),

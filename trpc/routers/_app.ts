@@ -8,12 +8,14 @@ import { adminPaymentAccountsRouter } from "./admin/payment-accounts";
 import { adminProductsRouter } from "./admin/products";
 import { catalogRouter } from "./catalog";
 import { orderRouter } from "./order";
+import { trackingRouter } from "./tracking";
 import { userRouter } from "./users";
 
 export const appRouter = createTRPCRouter({
   catalog: catalogRouter,
   account: accountRouter,
   order: orderRouter,
+  tracking: trackingRouter,
   admin: createTRPCRouter({
     dashboard: adminDashboardRouter,
     products: adminProductsRouter,

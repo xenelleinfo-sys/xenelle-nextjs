@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { Banknote, Clock, Ruler, Scissors } from "lucide-react";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
@@ -26,6 +26,7 @@ const ProductPage = ({ slug }: { slug: string }) => {
   const trpc = useTRPC();
   const { data } = useSuspenseQuery(trpc.catalog.product.queryOptions({ slug }));
   const cart = useCart();
+  const trackAddToCart = useMutation(trpc.tracking.addToCart.mutationOptions());
 
   const [sizeType, setSizeType] = useState<"STANDARD" | "CUSTOM">("STANDARD");
   const [size, setSize] = useState<string | null>(null);
@@ -47,19 +48,21 @@ const ProductPage = ({ slug }: { slug: string }) => {
     if (sizeType === "STANDARD" && !size) return toast.error("Please select a size");
     if (sizeType === "CUSTOM" && !m) return toast.error("Please enter at least one measurement");
 
+    const qty = Math.min(quantity, maxQty);
     cart.add({
       productId: product.id,
       slug: product.slug,
       name: product.name,
       image: product.images[0] ?? null,
       unitPrice: effectivePrice(product),
-      quantity: Math.min(quantity, maxQty),
+      quantity: qty,
       sizeType,
       size: sizeType === "STANDARD" ? size : null,
       measurements: m,
       notes: notes.trim() || null,
     });
     toast.success("Added to your bag");
+    trackAddToCart.mutate({ productId: product.id, quantity: qty, url: window.location.href });
   };
 
   return (
