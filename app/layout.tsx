@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Jost } from "next/font/google";
 import "./globals.css";
+import { MetaPixel } from "@/components/analytics/meta-pixel";
 import Provider from "@/lib/provider";
 import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TAGLINE } from "@/lib/constants";
 import { SITE_URL } from "@/lib/seo";
@@ -69,6 +70,7 @@ export default function RootLayout({
     <html lang="en-PK" className={`${jost.variable} ${cormorant.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <Provider>{children}</Provider>
+        <MetaPixel />
       </body>
     </html>
   );
